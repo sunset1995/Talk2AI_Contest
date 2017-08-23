@@ -1,4 +1,56 @@
+import gc
 import numpy as np
+from gensim.models import word2vec
+
+
+def extractor(word2vec_fname, corpus_fnames, extra_words=[], unknown_word=None):
+    assert(unknown_word is None or unknown_word in extra_words)
+    
+    # Read word2vec model
+    word2vec_model = word2vec.Word2Vec.load(word2vec_fname)
+    print('vocab    size:', len(word2vec_model.wv.vocab))
+    print('embeding size:', word2vec_model.layer1_size)
+
+
+    # Extract word2vec
+    word2id = {}
+    id2word = [None] * (len(word2vec_model.wv.vocab) + len(extra_words)) 
+    embedding_matrix = np.zeros([len(word2vec_model.wv.vocab) + len(extra_words), word2vec_model.layer1_size])
+    word_p = np.zeros(len(word2vec_model.wv.vocab) + len(extra_words))
+    total_word = np.sum([v.count for v in word2vec_model.wv.vocab.values()])
+
+    for i, word in enumerate(extra_words):
+        word2id[word] = i + len(word2vec_model.wv.vocab)
+        id2word[i + len(word2vec_model.wv.vocab)] = word
+
+    for k, v in word2vec_model.wv.vocab.items():
+        word2id[k] = v.index
+        id2word[v.index] = k
+        word_p[v.index] = v.count / total_word
+        embedding_matrix[v.index] = word2vec_model.wv.word_vec(k)
+    
+    del(word2vec_model)
+    gc.collect()
+
+
+    # Extract corpus
+    corpus = []
+    for fname in corpus_fnames:
+        with open(fname, 'r') as f:
+            corpus.extend([[s.split() for s in line.strip().split('\t')] for line in f])
+    
+    def s_2_sid(s):
+        ret = []
+        for word in s:
+            if word in word2id:
+                ret.append(word2id[word])
+            else:
+                ret.append(word2id[unknown_word] if unknown_word is not None else -1)
+        return ret
+    corpus_id = [[s_2_sid(s) for s in c] for c in corpus]
+
+
+    return word2id, id2word, word_p, embedding_matrix, corpus, corpus_id
 
 
 class MiniBatch():
@@ -62,7 +114,7 @@ class MiniBatch():
         return self._x1[idx], self._x2[idx], onehot
 
 
-class mini_batcher_corpus():
+class MiniBatchCorpus():
     def __init__(self, corpus, n_wrong=1):
         '''
         Parameters:
@@ -109,8 +161,7 @@ class mini_batcher_corpus():
             idx[i], idx[t] = idx[t], idx[i]
         return idx
 
-
-    def next_batch(self, batch_size):
+    def next_batch(self, batch_size, pad_to_length=-1, pad_word=-1):
         f = self._pointer
         t = self._pointer + batch_size
         if t > self.data_num:
@@ -122,4 +173,14 @@ class mini_batcher_corpus():
         x1 = self._corpus[dt[:, 0]]
         x2 = self._corpus[dt[:, 1]]
         y = dt[:, 2]
+        if pad_to_length > 0:
+            for i in range(batch_size):
+                len_to_pad_1 = pad_to_length - len(x1[i])
+                len_to_pad_2 = pad_to_length - len(x2[i])
+                assert(len_to_pad_1 >= 0)
+                assert(len_to_pad_2 >= 0)
+                x1[i].extend([pad_word] * len_to_pad_1)
+                x2[i].extend([pad_word] * len_to_pad_2)
+            x1 = np.asarray(x1)
+            x2 = np.asarray(x2)
         return x1, x2, y
