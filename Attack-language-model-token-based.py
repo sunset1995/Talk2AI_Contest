@@ -13,18 +13,18 @@ from mini_batch_helper import rnn_minibatch_sequencer
 
 
 
-word2vec_fname = 'models/word2vec_all_offitial_200.model.bin'
+word2vec_fname = 'models/word2vec_no_tc_offitial_200.model.bin'
 corpus_fnames = [
-    'datas/training_data/下課花路米.txt',
-    'datas/training_data/人生劇展.txt',
-    'datas/training_data/公視藝文大道.txt',
-    'datas/training_data/成語賽恩思.txt',
-    'datas/training_data/我的這一班.txt',
-    'datas/training_data/流言追追追.txt',
-    'datas/training_data/聽聽看.txt',
-    'datas/training_data/誰來晚餐.txt',
+    'datas/training_data/no_TC_下課花路米.txt',
+    'datas/training_data/no_TC_誰來晚餐.txt',
+    'datas/training_data/no_TC_公視藝文大道.txt',
+    'datas/training_data/no_TC_成語賽恩思.txt',
+    'datas/training_data/no_TC_我的這一班.txt',
+    'datas/training_data/no_TC_流言追追追.txt',
+    'datas/training_data/no_TC_人生劇展.txt',
+    'datas/training_data/no_TC_聽聽看.txt',
 ]
-sample_rate_on_training_datas = 0.3
+sample_rate_on_training_datas = 1
 extra_words = ['<unk>', '<bos>', '<eos>']
 unknown_word = '<unk>'
 
@@ -34,12 +34,10 @@ del(embedding_matrix)
 del(corpus)
 
 # Get only fixed number of corpus
-rnd_idx = np.arange(len(corpus_id))
-np.random.shuffle(rnd_idx)
-corpus_id = corpus_id[rnd_idx[:100]]
-
-train_corpus_id = corpus_id[:len(corpus_id)-1]
-valid_corpus_id = corpus_id[len(corpus_id)-1:]
+np.random.shuffle(corpus_id)
+valid_episode_num = 5
+train_corpus_id = corpus_id[valid_episode_num:]
+valid_corpus_id = corpus_id[:valid_episode_num]
 traintext = [w for cp in train_corpus_id for s in cp for w in [word2id['<bos>']] + s + [word2id['<eos>']]]
 validtext = [w for cp in valid_corpus_id for s in cp for w in [word2id['<bos>']] + s + [word2id['<eos>']]]
 del(corpus_id)
@@ -114,6 +112,9 @@ train_step = tf.train.AdamOptimizer(LEARNING_RATE).minimize(loss)
 saver = tf.train.Saver()
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
+
+def eval_valid():
+    pass
 
 step= 0
 start_time = time.time()
