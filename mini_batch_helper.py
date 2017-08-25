@@ -38,6 +38,10 @@ def rnn_minibatch_sequencer(raw_data, batch_size, sequence_size, nb_epochs):
             yield x, y, epoch
 
 
+'''
+Extractor
+Word based embedding layer scenario
+'''
 def extractor(word2vec_fname, corpus_fnames, extra_words=[], unknown_word=None):
     assert(unknown_word is None or unknown_word in extra_words)
     
@@ -86,6 +90,10 @@ def extractor(word2vec_fname, corpus_fnames, extra_words=[], unknown_word=None):
     return word2id, id2word, word_p, embedding_matrix, np.array(corpus), np.array(corpus_id)
 
 
+'''
+MiniBatch Helper
+PTT Gossip scenario
+'''
 class MiniBatch():
     def __init__(self, x1, x2, y):
         '''
@@ -147,6 +155,11 @@ class MiniBatch():
         return self._x1[idx], self._x2[idx], onehot
 
 
+
+'''
+MiniBatch Helper
+Official corpus scenario
+'''
 class MiniBatchCorpus():
     def __init__(self, corpus, n_wrong=1):
         '''

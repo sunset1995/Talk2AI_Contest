@@ -36,8 +36,6 @@ unknown_word = '<pad>'
 
 word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2vec_fname, corpus_fnames, extra_words, unknown_word)
 
-
-
 voc_size = embedding_matrix.shape[0]
 emb_size = embedding_matrix.shape[1]
 unknown_word_id = word2id['<pad>']
@@ -47,8 +45,6 @@ max_seq_len = np.max([len(s) for cp in corpus_id for s in cp])
 print('%20s: %d' % ('unknown_word_id', unknown_word_id))
 print('%20s: %d' % ('pad_word_id', pad_word_id))
 print('%20s: %d' % ('max_seq_len', max_seq_len))
-
-
 
 # Data split
 rnd_idx = np.arange(len(corpus_id))
@@ -68,8 +64,6 @@ tf_word_p = tf.constant(word_p, dtype=tf.float64)
 embeddings_W = tf.Variable(embedding_matrix)
 del(embedding_matrix)
 gc.collect()
-
-
 
 # Input
 wa = tf.placeholder(tf.float64, [1])
@@ -91,12 +85,12 @@ x2_center = sentence_embedding(x2)
 W = tf.Variable(tf.truncated_normal([emb_size, emb_size], stddev=1e-6, dtype=tf.float64))
 tf_score = tf.reduce_sum((x2_center * (x1_center @ W)), axis=1)
 
-cost = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=tf_score))
+reg = tf.nn.l2_loss(W) * 7.7 / (emb_size * emb_size)
+cost = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=tf_score)) + reg
 optimizer = tf.train.AdamOptimizer(1e-3)
 gvs = optimizer.compute_gradients(cost)
 capped_gvs = [(tf.clip_by_norm(grad, 0.2), var) for grad, var in gvs]
 train_step = optimizer.apply_gradients(capped_gvs)
-
 
 saver = tf.train.Saver()
 sess = tf.Session()
@@ -120,18 +114,16 @@ save_interval = 1000
 train_batch_loss = 0
 start_time = time.time()
 for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
-    now_epoch = i_batch // (train_data_loader.data_num // batch_size)
     b_x1, b_x2, b_y = train_data_loader.next_batch(batch_size, max_seq_len, pad_word_id)
     _, now_loss = sess.run([train_step, cost], {wa: [1e-4], x1: b_x1, x2: b_x2, y: b_y})
     train_batch_loss += now_loss / (log_interval * batch_size)
     if (i_batch+1) % log_interval == 0:
         valid_loss = eval_valid_loss()
-        print('epoch %2d: train batch loss %10f / valid loss %10f / elapsed time %.f' % (
-            now_epoch+1, train_batch_loss, valid_loss, time.time()-start_time), flush=True)
+        print('train batch loss %10f / valid loss %10f / elapsed time %.f' % (
+            train_batch_loss, valid_loss, time.time()-start_time), flush=True)
         train_batch_loss = 0
     if save_interval is not None and (i_batch+1) % save_interval == 0:
         saver.save(sess, 'models/Attack-sentence-embedding/s_emb', global_step=i_batch+1)
         print('model saved (latest)', flush=True)
 
 saver.save(sess, 'models/Attack-sentence-embedding/s_emb_final')
-
