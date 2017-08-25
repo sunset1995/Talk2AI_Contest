@@ -3,13 +3,46 @@ import numpy as np
 from gensim.models import word2vec
 
 
+def rnn_minibatch_sequencer(raw_data, batch_size, sequence_size, nb_epochs):
+    """
+    Referenced from: https://github.com/martin-gorner/tensorflow-rnn-shakespeare/blob/master/my_txtutils.py
+    Divides the data into batches of sequences so that all the sequences in one batch
+    continue in the next batch. This is a generator that will keep returning batches
+    until the input data has been seen nb_epochs times. Sequences are continued even
+    between epochs, apart from one, the one corresponding to the end of raw_data.
+    The remainder at the end of raw_data that does not fit in an full batch is ignored.
+    :param raw_data: the training text
+    :param batch_size: the size of a training minibatch
+    :param sequence_size: the unroll size of the RNN
+    :param nb_epochs: number of epochs to train on
+    :return:
+        x: one batch of training sequences
+        y: on batch of target sequences, i.e. training sequences shifted by 1
+        epoch: the current epoch number (starting at 0)
+    """
+    data = np.array(raw_data)
+    data_len = data.shape[0]
+    # using (data_len-1) because we must provide for the sequence shifted by 1 too
+    nb_batches = (data_len - 1) // (batch_size * sequence_size)
+    assert nb_batches > 0, "Not enough data, even for a single batch. Try using a smaller batch_size."
+    rounded_data_len = nb_batches * batch_size * sequence_size
+    xdata = np.reshape(data[0:rounded_data_len], [batch_size, nb_batches * sequence_size])
+    ydata = np.reshape(data[1:rounded_data_len + 1], [batch_size, nb_batches * sequence_size])
+
+    for epoch in range(nb_epochs):
+        for batch in range(nb_batches):
+            x = xdata[:, batch * sequence_size:(batch + 1) * sequence_size]
+            y = ydata[:, batch * sequence_size:(batch + 1) * sequence_size]
+            x = np.roll(x, -epoch, axis=0)  # to continue the text from epoch to epoch (do not reset rnn state!)
+            y = np.roll(y, -epoch, axis=0)
+            yield x, y, epoch
+
+
 def extractor(word2vec_fname, corpus_fnames, extra_words=[], unknown_word=None):
     assert(unknown_word is None or unknown_word in extra_words)
     
     # Read word2vec model
     word2vec_model = word2vec.Word2Vec.load(word2vec_fname)
-    print('vocab    size:', len(word2vec_model.wv.vocab))
-    print('embeding size:', word2vec_model.layer1_size)
 
 
     # Extract word2vec
@@ -50,7 +83,7 @@ def extractor(word2vec_fname, corpus_fnames, extra_words=[], unknown_word=None):
     corpus_id = [[s_2_sid(s) for s in c] for c in corpus]
 
 
-    return word2id, id2word, word_p, embedding_matrix, corpus, corpus_id
+    return word2id, id2word, word_p, embedding_matrix, np.array(corpus), np.array(corpus_id)
 
 
 class MiniBatch():
@@ -161,6 +194,13 @@ class MiniBatchCorpus():
             idx[i], idx[t] = idx[t], idx[i]
         return idx
 
+
+    def __padding(self, lst, pad_to_length, pad_word):
+        if pad_to_length < len(lst):
+            raise Exception('Padding error!! %d > %d' % (len(lst), pad_to_length))
+        return [lst[i] if i<len(lst) else pad_word for i in range(pad_to_length)]
+
+
     def next_batch(self, batch_size, pad_to_length=-1, pad_word=-1):
         f = self._pointer
         t = self._pointer + batch_size
@@ -170,17 +210,13 @@ class MiniBatchCorpus():
             np.random.shuffle(self._dt_pool)
         self._pointer = t
         dt = self._dt_pool[f:t]
-        x1 = self._corpus[dt[:, 0]]
-        x2 = self._corpus[dt[:, 1]]
-        y = dt[:, 2]
+        x1 = [list(lst) for lst in self._corpus[dt[:, 0]]]
+        x2 = [list(lst) for lst in self._corpus[dt[:, 1]]]
+        y = dt[:, 2].copy()
         if pad_to_length > 0:
-            for i in range(batch_size):
-                len_to_pad_1 = pad_to_length - len(x1[i])
-                len_to_pad_2 = pad_to_length - len(x2[i])
-                assert(len_to_pad_1 >= 0)
-                assert(len_to_pad_2 >= 0)
-                x1[i].extend([pad_word] * len_to_pad_1)
-                x2[i].extend([pad_word] * len_to_pad_2)
-            x1 = np.asarray(x1)
-            x2 = np.asarray(x2)
+            for i in range(len(x1)):
+                x1[i] = self.__padding(x1[i], pad_to_length, pad_word)
+                x2[i] = self.__padding(x2[i], pad_to_length, pad_word)
         return x1, x2, y
+
+    
