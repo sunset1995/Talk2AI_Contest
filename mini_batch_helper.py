@@ -42,7 +42,7 @@ def rnn_minibatch_sequencer(raw_data, batch_size, sequence_size, nb_epochs):
 Extractor
 Word based embedding layer scenario
 '''
-def extractor(word2vec_fname, corpus_fnames, extra_words=[], unknown_word=None):
+def extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extra_words=[], unknown_word=None):
     assert(unknown_word is None or unknown_word in extra_words)
     
     # Read word2vec model
@@ -74,7 +74,12 @@ def extractor(word2vec_fname, corpus_fnames, extra_words=[], unknown_word=None):
     corpus = []
     for fname in corpus_fnames:
         with open(fname, 'r') as f:
-            corpus.extend([[s.split() for s in line.strip().split('\t')] for line in f])
+            now_corpus = np.array([line for line in f])
+            sample_num = int(max(len(now_corpus)*sample_rate_on_training_datas, 5))
+            rnd_idx = np.arange(len(now_corpus))
+            np.random.shuffle(rnd_idx)
+            now_corpus = now_corpus[rnd_idx[:sample_num]]
+            corpus.extend([[s.split() for s in line.strip().split('\t')] for line in now_corpus])
     
     def s_2_sid(s):
         ret = []
