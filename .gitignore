@@ -2,3 +2,4 @@
 .DS_Store
 datas
 models
+__pycache__
