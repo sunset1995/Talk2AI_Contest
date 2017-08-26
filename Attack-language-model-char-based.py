@@ -59,6 +59,10 @@ print('%20s: %s' % ('traintext length', len(traintext)))
 print('%20s: %s' % ('validtext length', len(validtext)))
 print('%20s: %s' % ('vocab size', len(id2ch)))
 
+with open('datas/dict/id2ch.txt', 'w') as f:
+    f.write(' '.join([ch for ch in id2ch]))
+    f.write('\n')
+
 
 
 SEQLEN = 35
