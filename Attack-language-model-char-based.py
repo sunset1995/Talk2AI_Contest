@@ -47,7 +47,8 @@ for fname in corpus_fnames:
         corpus.extend(corpus_flatten(now_corpus))
         corpus_valid.extend(corpus_flatten(now_corpus_valid))
 
-id2ch = list(set(corpus + corpus_valid))
+with open('datas/dict/id2ch.txt') as f:
+    id2ch = f.read().strip().split()
 ch2id = dict([(ch, i) for i, ch in enumerate(id2ch)])
 traintext = np.array([ch2id[ch] for ch in corpus])
 validtext = np.array([ch2id[ch] for ch in corpus_valid])
@@ -59,10 +60,6 @@ print('%20s: %s' % ('traintext length', len(traintext)))
 print('%20s: %s' % ('validtext length', len(validtext)))
 print('%20s: %s' % ('vocab size', len(id2ch)))
 
-with open('datas/dict/id2ch.txt', 'w') as f:
-    f.write(' '.join([ch for ch in id2ch]))
-    f.write('\n')
-
 
 
 SEQLEN = 35
@@ -73,6 +70,7 @@ INTERNALSIZE = 200
 EMBEDDINGSIZE = 200      # Must be that EmbeddingSize == INTERNALSIZE
 NLAYERS = 2
 LEARNING_RATE = 1e-3
+LEARNING_DECAY = 4
 DROPOUT_PKEEP = 0.8
 LOGINTERVAL = 50
 SAVEINTERVAL= 1000
@@ -85,6 +83,7 @@ print('%20s: %s' % ('ALPHASIZE', ALPHASIZE))
 print('%20s: %s' % ('INTERNALSIZE', INTERNALSIZE))
 print('%20s: %s' % ('NLAYERS', NLAYERS))
 print('%20s: %s' % ('LEARNING_RATE', LEARNING_RATE))
+print('%20s: %s' % ('LEARNING_DECAY', LEARNING_DECAY))
 print('%20s: %s' % ('DROPOUT_PKEEP', DROPOUT_PKEEP))
 print('%20s: %s' % ('LOGINTERVAL', LOGINTERVAL))
 print('%20s: %s' % ('SAVEINTERVAL', SAVEINTERVAL))
@@ -169,6 +168,7 @@ def generate_text(pre_s, deterministic=True, max_output_len=35):
     output_lst = []
     while now_word_id != ch2id['<eos>'] and len(output_lst) < max_output_len:
         next_word_prob, istate = sess.run([Yflat, H], {X: [[now_word_id]], Hin: istate, pkeep: 1})
+        next_word_prob = next_word_prob.astype(np.float64)
         next_word_prob = np.exp(next_word_prob[0]) / np.sum(np.exp(next_word_prob[0]))
         if deterministic:
             next_word_id = np.argmax(next_word_prob)
@@ -178,18 +178,34 @@ def generate_text(pre_s, deterministic=True, max_output_len=35):
         now_word_id = next_word_id
     return ''.join(output_lst)
 
-def run_validation(valid_text='今天的天'):
+def run_validation(valid_text='你'):
     print('%20s: %s' % ('Valid loss', eval_valid_loss()), flush=True)
-    print('%20s -> %s' % (valid_text, generate_text(valid_text)), flush=True)
+    print('%20s -> %s' % (valid_text, generate_text(valid_text, deterministic=False)), flush=True)
     
 step= 0
 start_time = time.time()
 istate = np.zeros([BATCHSIZE, INTERNALSIZE*NLAYERS])  # initial zero input state
 batch_loss = 0
 
-# run_validation()
+step= 0
+start_time = time.time()
+istate = np.zeros([BATCHSIZE, INTERNALSIZE*NLAYERS])  # initial zero input state
+batch_loss = 0
 
+last_epoch = None
+best_valid_loss = None
 for x, y_, epoch in rnn_minibatch_sequencer(traintext, BATCHSIZE, SEQLEN, EPOCHNUM):
+    if last_epoch is None or last_epoch != epoch:
+        last_epoch = epoch
+        now_valid_loss = eval_valid_loss()
+        print('Start epoch %d' % epoch)
+        print('Current validation loss %f' % now_valid_loss)
+        if best_valid_loss is None or now_valid_loss < best_valid_loss:
+            best_valid_loss = now_valid_loss
+        else:
+            LEARNING_RATE /= LEARNING_DECAY
+            print('No improvement in validation loss after epoch QwQ')
+        print('Learning rate: %f' % LEARNING_RATE, flush=True)
     step += 1
     _, now_loss, istate = sess.run([train_step, loss, H], {
         X: x,
@@ -201,7 +217,7 @@ for x, y_, epoch in rnn_minibatch_sequencer(traintext, BATCHSIZE, SEQLEN, EPOCHN
     })
     batch_loss += np.mean(now_loss) / LOGINTERVAL
     if step % LOGINTERVAL == 0:
-        print('epoch %2d: batch loss %10f / elapsed time %.f' % (epoch, batch_loss, time.time() - start_time), flush=True)
+        print('batch loss %10f / elapsed time %.f' % (batch_loss, time.time() - start_time), flush=True)
         batch_loss = 0
     if step % SAVEINTERVAL == 0:
         run_validation()
