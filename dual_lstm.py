@@ -49,7 +49,7 @@ gc.collect()
 
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'dual_lstm_2'
+exp_name = 'dual_lstm_3'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -126,7 +126,7 @@ else:
     encoding_response = r_states.h
 
 # σ(cMr)
-M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer())
+M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.001))
 
 # "Predict" a  response: c * M
 generated_response = tf.matmul(encoding_context, M)
