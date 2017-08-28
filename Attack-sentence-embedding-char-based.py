@@ -104,14 +104,13 @@ tf_correct = tf.reduce_sum(tf.cast(
 ))
 
 
-# reg = tf.nn.l2_loss(W) * 1e-9
-# cost = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=tf_score)) + reg
-# optimizer = tf.train.AdamOptimizer(lr)
-# gvs = optimizer.compute_gradients(cost)
-# capped_gvs = [(tf.clip_by_norm(grad, 0.2), var) for grad, var in gvs]
-# train_step = optimizer.apply_gradients(capped_gvs)
+reg = tf.nn.l2_loss(W) * 1e-6
 cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=tf_score))
-train_step = tf.train.AdamOptimizer(lr).minimize(cost)
+reg_cost = cost + reg
+optimizer = tf.train.AdamOptimizer(lr)
+gvs = optimizer.compute_gradients(reg_cost)
+capped_gvs = [(tf.clip_by_norm(grad, 2), var) for grad, var in gvs]
+train_step = optimizer.apply_gradients(capped_gvs)
 
 
 saver = tf.train.Saver()
@@ -126,7 +125,7 @@ def eval_valid_loss():
     for i in range(batch_num):
         b_x1, b_x2, b_y = valid_data_loader.next_batch(valid_batch, max_seq_len, pad_word_id)
         now_loss, now_correct = sess.run([cost, tf_correct], {x1: b_x1, x2: b_x2, y: b_y})
-        valid_loss += now_loss / (batch_num * valid_batch)
+        valid_loss += now_loss / batch_num
         valid_acc += now_correct / (batch_num * valid_batch)
     return valid_loss, valid_acc
 
@@ -148,7 +147,7 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
     
     b_x1, b_x2, b_y = train_data_loader.next_batch(batch_size, max_seq_len, pad_word_id)
     _, now_loss = sess.run([train_step, cost], {x1: b_x1, x2: b_x2, y: b_y, lr: learning_rate})
-    train_batch_loss += now_loss / (log_interval * batch_size)
+    train_batch_loss += now_loss / log_interval
     if (i_batch+1) % log_interval == 0:
         valid_loss, valid_acc = eval_valid_loss()
         print('train batch loss %10f / valid loss %10f / valid acc %10f / elapsed time %.f' % (
