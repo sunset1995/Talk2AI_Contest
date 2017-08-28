@@ -63,7 +63,7 @@ params['n_layers'] = 1
 params['learning_rate'] = 1e-4
 params['keep_prob_train'] = 0.8
 params['keep_prob_valid'] = 1.0
-params['l1_loss'] = 1e-4 # regularize M
+params['l1_loss'] = 1e-6 # regularize M
 params['clip'] = 0.25
 params['batch_size'] = 256
 params['eval_batch_size'] = 16
@@ -126,7 +126,7 @@ else:
     encoding_response = r_states.h
 
 # σ(cMr)
-M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.001))
+M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
 
 # "Predict" a  response: c * M
 generated_response = tf.matmul(encoding_context, M)
