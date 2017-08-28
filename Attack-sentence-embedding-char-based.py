@@ -62,7 +62,7 @@ corpus_id = [[[ch2id[ch] for ch in s if ch in ch2id] for s in cp] for cp in corp
 corpus_valid_id = [[[ch2id[ch] for ch in s if ch in ch2id] for s in cp] for cp in corpus_valid]
 
 voc_size = len(ch2id)
-emb_size = 200
+emb_size = 311
 pad_word_id = ch2id['<eos>']
 max_seq_len = np.max([len(s) for cp in corpus_id for s in cp])
 
@@ -120,7 +120,7 @@ sess.run(tf.global_variables_initializer())
 def eval_valid_loss():
     valid_loss = 0
     valid_acc = 0
-    valid_batch = 1024
+    valid_batch = 2048
     batch_num = valid_data_loader.data_num // valid_batch
     for i in range(batch_num):
         b_x1, b_x2, b_y = valid_data_loader.next_batch(valid_batch, max_seq_len, pad_word_id)
@@ -156,15 +156,15 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
         if best_validation is None or valid_loss < best_validation:
             best_validation = valid_loss
             print('model saved (best)', flush=True)
-            saver.save(sess, 'models/Attack-sentence-embedding/best/model')
+            saver.save(sess, 'models/Attack-sentence-embedding/best')
         else:
             learning_rate /= 1.01
             print('Decay learing rate -> %10f' % (learning_rate))
     if save_interval is not None and (i_batch+1) % save_interval == 0:
-        saver.save(sess, 'models/Attack-sentence-embedding/s_emb', global_step=i_batch+1)
+        saver.save(sess, 'models/Attack-sentence-embedding/latest')
         print('model saved (latest)', flush=True)
 
-saver.save(sess, 'models/Attack-sentence-embedding/s_emb_final')
+saver.save(sess, 'models/Attack-sentence-embedding/final')
 
 
 
