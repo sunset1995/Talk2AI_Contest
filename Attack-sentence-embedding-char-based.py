@@ -29,7 +29,7 @@ corpus_fnames = [
     'datas/training_data/no_TC_人生劇展.txt',
     'datas/training_data/no_TC_聽聽看.txt',
 ]
-sample_rate_on_training_datas = 0.3
+sample_rate_on_training_datas = 1
 valid_cp_num_of_each = 1
 
 def word_tok_lst_2_ch_lst(s):
@@ -131,7 +131,7 @@ def eval_valid_loss():
 
 learning_rate = 1e-3
 batch_size = 256
-epoch_num = 10
+epoch_num = 40
 log_interval = 500
 save_interval = 10000
 
