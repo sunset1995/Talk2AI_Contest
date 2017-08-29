@@ -20,7 +20,7 @@ from mini_batch_helper import MiniBatchCorpus
 
 
 
-word2vec_fname = 'models/word2vec_all_offitial_200.model.bin'
+word2vec_fname = 'models/word2vec/vec200_win40_iter15_mincnt5.bin'
 corpus_fnames = [
     'datas/training_data/下課花路米.txt',
     'datas/training_data/人生劇展.txt',
@@ -33,19 +33,16 @@ corpus_fnames = [
 ]
 sample_rate_on_training_datas = 1
 extra_words = ['<pad>']
-unknown_word = '<pad>'
 
-word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extra_words, unknown_word)
+word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extra_words, unknown_word=None)
 
 
 
 voc_size = embedding_matrix.shape[0]
 emb_size = embedding_matrix.shape[1]
-unknown_word_id = word2id['<pad>']
 pad_word_id = word2id['<pad>']
 max_seq_len = np.max([len(s) for cp in corpus_id for s in cp])
 
-print('%20s: %d' % ('unknown_word_id', unknown_word_id))
 print('%20s: %d' % ('pad_word_id', pad_word_id))
 print('%20s: %d' % ('max_seq_len', max_seq_len))
 
@@ -62,8 +59,6 @@ print('valid datas num:', valid_data_loader.data_num)
 
 # Word embedding model
 embeddings_W = tf.Variable(embedding_matrix)
-del(embedding_matrix)
-gc.collect()
 
 # Input
 x1 = tf.placeholder(tf.int32, [None, None])
@@ -90,7 +85,7 @@ tf_correct = tf.reduce_sum(tf.cast(
 ))
 
 
-reg = tf.nn.l2_loss(W) * 1e-5
+reg = tf.nn.l2_loss(W) * 1e-9
 cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=tf_score))
 cost_reg = cost + reg
 optimizer = tf.train.AdamOptimizer(lr)

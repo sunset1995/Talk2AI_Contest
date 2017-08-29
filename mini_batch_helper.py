@@ -1,6 +1,7 @@
 import gc
 import numpy as np
 from gensim.models import word2vec
+from gensim.models.keyedvectors import KeyedVectors
 
 
 def rnn_minibatch_sequencer(raw_data, batch_size, sequence_size, nb_epochs):
@@ -46,28 +47,33 @@ def extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extr
     assert(unknown_word is None or unknown_word in extra_words)
     
     # Read word2vec model
-    word2vec_model = word2vec.Word2Vec.load(word2vec_fname)
+    try:
+        word2vec_model = word2vec.Word2Vec.load(word2vec_fname)
+        word_vectors = word2vec_model.wv
+        word_vectors.vector_size = word2vec_model.layer_size
+    except:
+        if word2vec_fname.endswith('.txt'):
+            word_vectors = KeyedVectors.load_word2vec_format(word2vec_fname, binary=False)
+        else:
+            word_vectors = KeyedVectors.load_word2vec_format(word2vec_fname, binary=True)
 
 
     # Extract word2vec
     word2id = {}
-    id2word = [None] * (len(word2vec_model.wv.vocab) + len(extra_words)) 
-    embedding_matrix = np.zeros([len(word2vec_model.wv.vocab) + len(extra_words), word2vec_model.layer1_size])
-    word_p = np.zeros(len(word2vec_model.wv.vocab) + len(extra_words))
-    total_word = np.sum([v.count for v in word2vec_model.wv.vocab.values()])
+    id2word = [None] * (len(word_vectors.vocab) + len(extra_words)) 
+    embedding_matrix = np.zeros([len(word_vectors.vocab) + len(extra_words), word_vectors.vector_size])
+    word_p = np.zeros(len(word_vectors.vocab) + len(extra_words))
+    total_word = np.sum([v.count for v in word_vectors.vocab.values()])
 
     for i, word in enumerate(extra_words):
-        word2id[word] = i + len(word2vec_model.wv.vocab)
-        id2word[i + len(word2vec_model.wv.vocab)] = word
+        word2id[word] = i + len(word_vectors.vocab)
+        id2word[i + len(word_vectors.vocab)] = word
 
-    for k, v in word2vec_model.wv.vocab.items():
+    for k, v in word_vectors.vocab.items():
         word2id[k] = v.index
         id2word[v.index] = k
         word_p[v.index] = v.count / total_word
-        embedding_matrix[v.index] = word2vec_model.wv.word_vec(k)
-    
-    del(word2vec_model)
-    gc.collect()
+        embedding_matrix[v.index] = word_vectors.word_vec(k)
 
 
     # Extract corpus
@@ -86,8 +92,8 @@ def extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extr
         for word in s:
             if word in word2id:
                 ret.append(word2id[word])
-            else:
-                ret.append(word2id[unknown_word] if unknown_word is not None else -1)
+            elif unknown_word is not None:
+                ret.append(word2id[unknown_word])
         return ret
     corpus_id = [[s_2_sid(s) for s in c] for c in corpus]
 
@@ -237,6 +243,8 @@ class MiniBatchCorpus():
             for i in range(len(x1)):
                 x1[i] = self.__padding(x1[i], pad_to_length, pad_word)
                 x2[i] = self.__padding(x2[i], pad_to_length, pad_word)
+            x1 = np.array(x1)
+            x2 = np.array(x2)
         if return_len:
             return x1, x2, y, x1_len, x2_len
         else:
