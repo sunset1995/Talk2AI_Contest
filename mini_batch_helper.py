@@ -219,7 +219,7 @@ class MiniBatchCorpus():
         return [lst[i] if i<len(lst) else pad_word for i in range(pad_to_length)]
 
 
-    def next_batch(self, batch_size, pad_to_length=-1, pad_word=-1):
+    def next_batch(self, batch_size, pad_to_length=-1, pad_word=-1, return_len=False):
         f = self._pointer
         t = self._pointer + batch_size
         if t > self.data_num:
@@ -230,11 +230,16 @@ class MiniBatchCorpus():
         dt = self._dt_pool[f:t]
         x1 = [list(lst) for lst in self._corpus[dt[:, 0]]]
         x2 = [list(lst) for lst in self._corpus[dt[:, 1]]]
+        x1_len = [len(x)-1 for x in x1]
+        x2_len = [len(x)-1 for x in x2]
         y = dt[:, 2].copy()
         if pad_to_length > 0:
             for i in range(len(x1)):
                 x1[i] = self.__padding(x1[i], pad_to_length, pad_word)
                 x2[i] = self.__padding(x2[i], pad_to_length, pad_word)
-        return x1, x2, y
+        if return_len:
+            return x1, x2, y, x1_len, x2_len
+        else:
+            return x1, x2, y
 
     
