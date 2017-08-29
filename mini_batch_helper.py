@@ -50,7 +50,7 @@ def extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extr
     try:
         word2vec_model = word2vec.Word2Vec.load(word2vec_fname)
         word_vectors = word2vec_model.wv
-        word_vectors.vector_size = word2vec_model.layer_size
+        word_vectors.vector_size = word2vec_model.layer1_size
     except:
         if word2vec_fname.endswith('.txt'):
             word_vectors = KeyedVectors.load_word2vec_format(word2vec_fname, binary=False)
