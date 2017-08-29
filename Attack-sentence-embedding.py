@@ -33,8 +33,9 @@ corpus_fnames = [
 ]
 sample_rate_on_training_datas = 1
 extra_words = ['<pad>']
+unknown_word = None
 
-word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extra_words, unknown_word=None)
+word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extra_words, unknown_word)
 
 
 
@@ -66,15 +67,16 @@ x2 = tf.placeholder(tf.int32, [None, None])
 y = tf.placeholder(tf.float64, [None])
 lr = tf.placeholder(tf.float64)
 
-def sentence_embedding(xs):
-    xs_mask = 1 - tf.to_double(tf.equal(xs, pad_word_id))
-    xs_len = tf.reduce_sum(xs_mask, axis=1)
-    xs_embedded = tf.gather(embeddings_W, xs)
-    xs_center = tf.reduce_sum(xs_embedded, axis=1) / tf.reshape(tf.to_double(xs_len)+1e-6, [-1, 1])
-    return xs_center
+# Sentence embedding
+x1_mask = tf.to_double(tf.not_equal(x1, pad_word_id))
+x2_mask = tf.to_double(tf.not_equal(x2, pad_word_id))
+x1_len = tf.reduce_sum(x1_mask, axis=1)
+x2_len = tf.reduce_sum(x2_mask, axis=1)
+x1_embedded = tf.gather(embeddings_W, x1) * tf.reshape(x1_mask, [-1, tf.shape(x1)[1], 1])
+x2_embedded = tf.gather(embeddings_W, x2) * tf.reshape(x2_mask, [-1, tf.shape(x2)[1], 1])
+x1_center = tf.reduce_sum(x1_embedded, axis=1) / tf.reshape(tf.to_double(x1_len)+1e-6, [-1, 1])
+x2_center = tf.reduce_sum(x2_embedded, axis=1) / tf.reshape(tf.to_double(x2_len)+1e-6, [-1, 1])
 
-x1_center = sentence_embedding(x1)
-x2_center = sentence_embedding(x2)
 W = tf.Variable(tf.truncated_normal([emb_size, emb_size], stddev=0.01, dtype=tf.float64))
 tf_score = tf.reduce_sum((x2_center * (x1_center @ W)), axis=1)
 
@@ -83,7 +85,6 @@ tf_correct = tf.reduce_sum(tf.cast(
     (tf.equal(y, 1) & tf.greater_equal(tf_prob, 0.5)) | (tf.equal(y, 0) & tf.less(tf_prob, 0.5)),
     tf.int32
 ))
-
 
 reg = tf.nn.l2_loss(W) * 1e-9
 cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=tf_score))
@@ -100,7 +101,7 @@ sess.run(tf.global_variables_initializer())
 def eval_valid_loss():
     valid_loss = 0
     valid_acc = 0
-    valid_batch = 1024
+    valid_batch = 2048
     batch_num = valid_data_loader.data_num // valid_batch
     for i in range(batch_num):
         b_x1, b_x2, b_y = valid_data_loader.next_batch(valid_batch, max_seq_len, pad_word_id)
@@ -139,9 +140,9 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
             best_acc = valid_acc
             print('model saved (best)', flush=True)
             saver.save(sess, 'models/Attack-sentence-embedding/best')
-        # else:
-            # learning_rate /= 1.01
-            # print('Decay learing rate -> %10f' % (learning_rate))
+#         else:
+#             learning_rate /= 1.01
+#             print('Decay learing rate -> %10f' % (learning_rate))
     if save_interval is not None and (i_batch+1) % save_interval == 0:
         saver.save(sess, 'models/Attack-sentence-embedding/latest')
         print('model saved (latest)', flush=True)
