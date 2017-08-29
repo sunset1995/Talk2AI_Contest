@@ -90,10 +90,10 @@ record['sample_correct'] = 0
 import tensorflow as tf
 
 # Input
-#context = tf.placeholder(dtype=tf.int64, shape=(None, max_seq_len), name='context')
-#response = tf.placeholder(dtype=tf.int64, shape=(None, max_seq_len), name='response')
 context = tf.placeholder(dtype=tf.int64, shape=(None, None), name='context')
+context_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='context_len')
 response = tf.placeholder(dtype=tf.int64, shape=(None, None), name='response')
+response_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='response_len')
 target = tf.placeholder(dtype=tf.int64, shape=(None, ), name='target')
 keep_prob = tf.placeholder(dtype=tf.float32, name='keep_prob')
 
@@ -111,9 +111,9 @@ if params['n_layers'] == 1:
                 use_peepholes=True, state_is_tuple=True, reuse=tf.get_variable_scope().reuse)
     cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
     c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, dtype=tf.float32)
-    encoding_context = c_states.h
+    encoding_context = c_outputs[ tf.one_hot(context_len) ]   # c_states.h
     r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, dtype=tf.float32)
-    encoding_response = r_states.h
+    encoding_response =  r_outputs[ tf.one_hot(response_len) ]  # r_states.h
 else:
     cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, use_peepholes=True, state_is_tuple=False, reuse=tf.get_variable_scope().reuse) 
                 for _ in range(params['n_layers'])]
@@ -121,9 +121,9 @@ else:
     multicell = tf.contrib.rnn.MultiRNNCell(dropcells, state_is_tuple=False)
     multicell = tf.contrib.rnn.DropoutWrapper(multicell, output_keep_prob=keep_prob)
     c_outputs, c_states = tf.nn.dynamic_rnn(multicell, context_embedded, dtype=tf.float32)
-    encoding_context = c_states.h
+    encoding_context = c_outputs[ tf.one_hot(context_len) ]   # c_states.h
     r_outputs, r_states = tf.nn.dynamic_rnn(multicell, response_embedded, dtype=tf.float32)
-    encoding_response = r_states.h
+    encoding_response =  r_outputs[ tf.one_hot(response_len) ]  # r_states.h
 
 # σ(cMr)
 M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
@@ -159,8 +159,10 @@ def get_valid_loss_accuracy(sess):
     valid_accuracy = 0
     n_iter = int(valid_data_loader.data_num/params['batch_size'])
     for iter in range(n_iter):
-        next_x1, next_x2, next_y = valid_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len)
-        new_accuracy, new_loss = sess.run([accuracy, loss], feed_dict={context: next_x1, response: next_x2, target: next_y, keep_prob: params['keep_prob_valid']}) 
+        next_x1, next_x2, next_y, x1_len, x2_len = valid_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len, return_len=True)
+        new_accuracy, new_loss = sess.run([accuracy, loss], 
+                                    feed_dict={context: next_x1, response: next_x2, target: next_y, 
+                                    keep_prob: params['keep_prob_train'], context_len: x1_len, response_len:x2_len}) 
         valid_accuracy += new_accuracy
         valid_loss += new_loss
     valid_loss /= n_iter
@@ -187,8 +189,10 @@ with tf.Session() as sess:
     for it in range(params['n_iterations']):
         print('Iterations %4d:\t' %(it+1) , end='', flush=True)
         # Train next batch
-        next_x1, next_x2, next_y = train_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len)
-        batch_loss, _ = sess.run([loss, train_step], feed_dict={context: next_x1, response: next_x2, target: next_y, keep_prob: params['keep_prob_train']})
+        next_x1, next_x2, next_y, x1_len, x2_len = train_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len, return_len=True)
+        batch_loss, _ = sess.run([loss, train_step], 
+                            feed_dict={context: next_x1, response: next_x2, target: next_y, 
+                            keep_prob: params['keep_prob_train'], context_len: x1_len, response_len:x2_len}) 
         print('loss of batch = %.5f / elapsed time %.f' % (batch_loss, time.time() - start_time), flush=True)
         record['loss_train'].append( batch_loss.tolist() )
         if it % 10 == 0:
