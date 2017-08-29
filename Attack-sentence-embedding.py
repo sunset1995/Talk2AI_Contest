@@ -58,6 +58,8 @@ valid_data_loader = MiniBatchCorpus(corpus_id[:valid_corpus_num])
 print('train datas num:', train_data_loader.data_num)
 print('valid datas num:', valid_data_loader.data_num)
 
+
+
 # Word embedding model
 embeddings_W = tf.Variable(embedding_matrix)
 
