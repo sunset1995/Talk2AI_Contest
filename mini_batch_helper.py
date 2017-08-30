@@ -57,6 +57,8 @@ def extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extr
         else:
             word_vectors = KeyedVectors.load_word2vec_format(word2vec_fname, binary=True)
 
+    # Remove extra word already existed in vocab
+    extra_words = [word for word in extra_words if word not in word_vectors.vocab]
 
     # Extract word2vec
     word2id = {}
