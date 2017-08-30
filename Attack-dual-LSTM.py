@@ -1,3 +1,12 @@
+
+# coding: utf-8
+
+# # Dual LSTM
+
+# In[1]:
+
+
+import tensorflow as tf
 import pandas as pd
 import numpy as np
 import re
@@ -9,6 +18,11 @@ import time
 import gc
 import json
 from mini_batch_helper import extractor, MiniBatchCorpus
+
+
+# ## Read in  training data
+
+# In[2]:
 
 
 # Read in  training data
@@ -23,11 +37,16 @@ corpus_fnames = [
     'datas/training_data/no_TC_聽聽看.txt',
     'datas/training_data/no_TC_誰來晚餐.txt',
 ]
-sample_rate_on_training_datas = 0.3  # 1.0
+sample_rate_on_training_datas = 1.0  # 1.0
 extra_words = ['<pad>']
-unknown_word = '<pad>'
+unknown_word = None
 
 word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2vec_fname, corpus_fnames, sample_rate_on_training_datas, extra_words, unknown_word)
+
+
+# In[3]:
+
+
 # Data split
 rnd_idx = np.arange(len(corpus_id))
 np.random.shuffle(rnd_idx)
@@ -40,6 +59,21 @@ print('train datas num:', train_data_loader.data_num, flush=True)
 print('valid datas num:', valid_data_loader.data_num, flush=True)
 
 
+# In[4]:
+
+
+from pandas import Series
+
+
+# In[5]:
+
+
+Series([len(sentence) for episode in corpus_id for sentence in episode]).describe()
+
+
+# In[6]:
+
+
 max_seq_len = max([len(sentence) for episode in corpus_id for sentence in episode])
 max_seq_len
 
@@ -47,9 +81,19 @@ del(corpus)
 gc.collect()
 
 
+# In[7]:
+
+
+type(max_seq_len)
+
+
+# ## Model ( tf )
+
+# In[8]:
+
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'dual_lstm_3'
+exp_name = 'dual_lstm_8'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -57,22 +101,30 @@ params['word2vec_model_name'] = word2vec_fname
 params['word2vec_vocab_size'] = embedding_matrix.shape[0]
 params['word2vec_dim'] = embedding_matrix.shape[1]
 params['rnn_dim'] = 256  # 256, 384, 512
-params['n_layers'] = 1
+params['n_layers'] = 2
 
 # Training Parameters
 params['learning_rate'] = 1e-4
 params['keep_prob_train'] = 0.8
 params['keep_prob_valid'] = 1.0
 params['l1_loss'] = 1e-6 # regularize M
-params['clip'] = 0.25
-params['batch_size'] = 256
+params['clip'] = 5
+params['batch_size'] = 512
 params['eval_batch_size'] = 16
-params['n_iterations'] = int(40 * train_data_loader.data_num / params['batch_size'])
+params['n_iterations'] = int(10 * train_data_loader.data_num / params['batch_size'])
+
+
+# In[9]:
+
 
 if not os.path.exists(save_params_dir):
     os.makedirs(save_params_dir)
 with open(save_params_dir+'model_parameters.json', 'w') as f:
     json.dump(params, f, indent=1)
+
+
+# In[10]:
+
 
 record = {}
 save_record_dir = 'models/%s/' %exp_name
@@ -85,16 +137,20 @@ record['best_iter'] = 0
 record['sample_correct'] = 0
 
 
+# ## TODO: Embedding 後可以考慮加一層 Dropout
+
+# In[11]:
+
 
 # Define model
 import tensorflow as tf
 
 # Input
-context = tf.placeholder(dtype=tf.int64, shape=(None, None), name='context')
+context = tf.placeholder(dtype=tf.int32, shape=(None, None), name='context')
 context_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='context_len')
-response = tf.placeholder(dtype=tf.int64, shape=(None, None), name='response')
+response = tf.placeholder(dtype=tf.int32, shape=(None, None), name='response')
 response_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='response_len')
-target = tf.placeholder(dtype=tf.int64, shape=(None, ), name='target')
+target = tf.placeholder(dtype=tf.int32, shape=(None, ), name='target')
 keep_prob = tf.placeholder(dtype=tf.float32, name='keep_prob')
 
 
@@ -111,9 +167,11 @@ if params['n_layers'] == 1:
                 use_peepholes=True, state_is_tuple=True, reuse=tf.get_variable_scope().reuse)
     cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
     c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, dtype=tf.float32)
-    encoding_context = c_outputs[ tf.one_hot(context_len) ]   # c_states.h
+    mask = tf.expand_dims(tf.one_hot(context_len, depth=tf.shape(context)[1]), 1)
+    encoding_context = tf.squeeze(tf.matmul(mask, c_outputs), 1)   # c_states.h
     r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, dtype=tf.float32)
-    encoding_response =  r_outputs[ tf.one_hot(response_len) ]  # r_states.h
+    mask = tf.expand_dims(tf.one_hot(response_len, depth=tf.shape(response)[1]), 1)
+    encoding_response =  tf.squeeze(tf.matmul(mask, r_outputs), 1)  # r_states.h
 else:
     cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, use_peepholes=True, state_is_tuple=False, reuse=tf.get_variable_scope().reuse) 
                 for _ in range(params['n_layers'])]
@@ -121,9 +179,11 @@ else:
     multicell = tf.contrib.rnn.MultiRNNCell(dropcells, state_is_tuple=False)
     multicell = tf.contrib.rnn.DropoutWrapper(multicell, output_keep_prob=keep_prob)
     c_outputs, c_states = tf.nn.dynamic_rnn(multicell, context_embedded, dtype=tf.float32)
-    encoding_context = c_outputs[ tf.one_hot(context_len) ]   # c_states.h
+    mask = tf.expand_dims(tf.one_hot(context_len, depth=tf.shape(context)[1]), 1)
+    encoding_context = tf.squeeze(tf.matmul(mask, c_outputs), 1)   # c_states.h
     r_outputs, r_states = tf.nn.dynamic_rnn(multicell, response_embedded, dtype=tf.float32)
-    encoding_response =  r_outputs[ tf.one_hot(response_len) ]  # r_states.h
+    mask = tf.expand_dims(tf.one_hot(response_len, depth=tf.shape(response)[1]), 1)
+    encoding_response =  tf.squeeze(tf.matmul(mask, r_outputs), 1)  # r_states.h
 
 # σ(cMr)
 M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
@@ -153,6 +213,8 @@ train_step = optimizer.apply_gradients(capped_gvs)
 
 
 
+# In[ ]:
+
 
 def get_valid_loss_accuracy(sess):
     valid_loss = 0
@@ -173,6 +235,7 @@ def get_valid_loss_accuracy(sess):
     return valid_loss
 
 
+# In[ ]:
 
 
 # Train
@@ -184,7 +247,7 @@ with tf.Session() as sess:
     
     # Restore model
     # saver.restore(sess, record['best_model_dir']+'model.ckpt')
-    # print('Retrain model.', flush=True)
+    # print('Retrain model: %s' %record['best_model_dir'], flush=True)
     best_valid_loss = 0
     for it in range(params['n_iterations']):
         print('Iterations %4d:\t' %(it+1) , end='', flush=True)
@@ -210,7 +273,12 @@ with tf.Session() as sess:
         save_path = saver.save(sess, record['newest_model_dir']+'model.ckpt')
 
 
+# In[ ]:
+
+
+# Dump record file as .json
 if not os.path.exists(save_record_dir):
     os.makedirs(save_record_dir)
 with open(save_record_dir+'%d.json' %params['n_iterations'], 'w') as f:
     json.dump(record, f, indent=1)
+
