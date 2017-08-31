@@ -20,7 +20,7 @@ from mini_batch_helper import MiniBatchCorpus
 
 
 
-word2vec_fname = 'models/word2vec/vec512_win15_iter15_mincnt5.bin'
+word2vec_fname = 'models/word2vec/vec200_win40_iter15_mincnt1.txt'
 corpus_fnames = [
     'datas/training_data/下課花路米.txt',
     'datas/training_data/人生劇展.txt',
@@ -86,7 +86,7 @@ tf_prob = tf.sigmoid(tf_score)
 tf_guess = tf.cast(tf.greater_equal(tf_prob, 0.5), tf.int32)
 tf_correct = tf.reduce_sum(tf.cast(tf.equal(y, tf_guess), tf.int32))
 
-reg = tf.nn.l2_loss(W) * 0
+reg = tf.nn.l2_loss(W) * 1e-6
 cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(y, tf.float64), logits=tf_score))
 cost_reg = cost + reg
 optimizer = tf.train.AdamOptimizer(lr)
@@ -100,6 +100,7 @@ sess.run(tf.global_variables_initializer())
 
 def eval_valid_loss():
     valid_loss = 0
+    reg_loss = 0
     valid_acc = 0
     valid_batch = 2048
     num = [0, 0]
@@ -107,9 +108,10 @@ def eval_valid_loss():
     batch_num = valid_data_loader.data_num // valid_batch
     for i in range(batch_num):
         b_x1, b_x2, b_y = valid_data_loader.next_batch(valid_batch, max_seq_len, pad_word_id)
-        now_loss, now_correct, now_guess = sess.run([cost, tf_correct, tf_guess], {x1: b_x1, x2: b_x2, y: b_y})
+        now_loss, now_reg_loss, now_correct, now_guess = sess.run([cost, reg, tf_correct, tf_guess], {x1: b_x1, x2: b_x2, y: b_y})
         assert(now_correct == np.sum(now_guess == b_y))
         valid_loss += now_loss / batch_num
+        reg_loss += now_reg_loss / batch_num
         valid_acc += now_correct / (batch_num * valid_batch)
         num[0] += np.sum(b_y == 0)
         num[1] += np.sum(b_y == 1)
@@ -117,7 +119,7 @@ def eval_valid_loss():
         correct[1] += np.sum((b_y == 1) & (now_guess == b_y))
     recall_0 = correct[0] / num[0] if num[0] else 0
     recall_1 = correct[1] / num[1] if num[1] else 0
-    return valid_loss, valid_acc, recall_0, recall_1
+    return valid_loss, reg_loss, valid_acc, recall_0, recall_1
 
 
 learning_rate = 1e-3
@@ -141,22 +143,22 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
     _, now_loss = sess.run([train_step, cost], {x1: b_x1, x2: b_x2, y: b_y, lr: learning_rate})
     train_batch_loss += now_loss / log_interval
     if (i_batch+1) % log_interval == 0:
-        valid_loss, valid_acc, recall_0, recall_1 = eval_valid_loss()
-        print('train batch loss %8f / valid loss %8f / valid acc %8f / recall_0 %8f / recall_1 %8f / elapsed time %.f' % (
-            train_batch_loss, valid_loss, valid_acc, recall_0, recall_1, time.time()-start_time), flush=True)
+        valid_loss, reg_loss, valid_acc, recall_0, recall_1 = eval_valid_loss()
+        print('train batch loss %8f / valid loss %8f / valid reg loss %8f / valid acc %8f / recall_0 %8f / recall_1 %8f / elapsed time %.f' % (
+            train_batch_loss, valid_loss, reg_loss, valid_acc, recall_0, recall_1, time.time()-start_time), flush=True)
         train_batch_loss = 0
         if best_acc is None or best_acc < valid_acc:
             best_acc = valid_acc
             print('model saved (best)', flush=True)
-            saver.save(sess, 'models/Attack-sentence-embedding-512/best')
+            saver.save(sess, 'models/Attack-sentence-embedding/best')
         else:
             learning_rate /= 1.01
             print('Decay learing rate -> %10f' % (learning_rate))
     if save_interval is not None and (i_batch+1) % save_interval == 0:
-        saver.save(sess, 'models/Attack-sentence-embedding-512/latest')
+        saver.save(sess, 'models/Attack-sentence-embedding/latest')
         print('model saved (latest)', flush=True)
 
-saver.save(sess, 'models/Attack-sentence-embedding-512/final')
+saver.save(sess, 'models/Attack-sentence-embedding/final')
 
 
 
