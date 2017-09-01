@@ -125,7 +125,7 @@ def eval_valid_loss():
 learning_rate = 1e-3
 batch_size = 256
 epoch_num = 40
-log_interval = 1
+log_interval = 500
 save_interval = 10000
 
 last_epoch = None
