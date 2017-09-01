@@ -20,7 +20,7 @@ from mini_batch_helper import MiniBatchCorpus
 
 
 
-word2vec_fname = 'models/word2vec/vec200_win40_iter15_mincnt1.txt'
+word2vec_fname = 'models/word2vec/fine-tuned-2.txt'
 corpus_fnames = [
     'datas/training_data/下課花路米.txt',
     'datas/training_data/人生劇展.txt',
@@ -50,7 +50,7 @@ print('%20s: %d' % ('max_seq_len', max_seq_len))
 # Data split
 rnd_idx = np.arange(len(corpus_id))
 np.random.shuffle(rnd_idx)
-corpus_id = corpus_id[rnd_idx[:len(corpus_id)//2]]
+corpus_id = corpus_id[rnd_idx]
 valid_corpus_num = 10
 
 train_data_loader = MiniBatchCorpus(corpus_id[valid_corpus_num:])
@@ -86,7 +86,7 @@ tf_prob = tf.sigmoid(tf_score)
 tf_guess = tf.cast(tf.greater_equal(tf_prob, 0.5), tf.int32)
 tf_correct = tf.reduce_sum(tf.cast(tf.equal(y, tf_guess), tf.int32))
 
-reg = tf.nn.l2_loss(W) * 1e-6
+reg = tf.nn.l2_loss(W) * 1e-2
 cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.cast(y, tf.float64), logits=tf_score))
 cost_reg = cost + reg
 optimizer = tf.train.AdamOptimizer(lr)
@@ -125,7 +125,7 @@ def eval_valid_loss():
 learning_rate = 1e-3
 batch_size = 256
 epoch_num = 40
-log_interval = 500
+log_interval = 1
 save_interval = 10000
 
 last_epoch = None
@@ -150,15 +150,15 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
         if best_acc is None or best_acc < valid_acc:
             best_acc = valid_acc
             print('model saved (best)', flush=True)
-            saver.save(sess, 'models/Attack-sentence-embedding/best')
+            saver.save(sess, 'models/Attack-sentence-embedding-6/best')
         else:
             learning_rate /= 1.01
             print('Decay learing rate -> %10f' % (learning_rate))
     if save_interval is not None and (i_batch+1) % save_interval == 0:
-        saver.save(sess, 'models/Attack-sentence-embedding/latest')
+        saver.save(sess, 'models/Attack-sentence-embedding-6/latest')
         print('model saved (latest)', flush=True)
 
-saver.save(sess, 'models/Attack-sentence-embedding/final')
+saver.save(sess, 'models/Attack-sentence-embedding-6/final')
 
 
 
