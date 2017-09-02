@@ -94,9 +94,12 @@ gvs = optimizer.compute_gradients(cost_reg)
 capped_gvs = [(tf.clip_by_norm(grad, 20), var) for grad, var in gvs]
 train_step = optimizer.apply_gradients(capped_gvs)
 
+# saver = tf.train.Saver()
+# sess = tf.Session()
+# sess.run(tf.global_variables_initializer())
 saver = tf.train.Saver()
 sess = tf.Session()
-sess.run(tf.global_variables_initializer())
+saver.restore(sess, './models/Attack-sentence-6/latest')
 
 def eval_valid_loss():
     valid_loss = 0
@@ -122,7 +125,7 @@ def eval_valid_loss():
     return valid_loss, reg_loss, valid_acc, recall_0, recall_1
 
 
-learning_rate = 1e-3
+learning_rate = 1e-2
 batch_size = 256
 epoch_num = 40
 log_interval = 500
@@ -131,7 +134,7 @@ save_interval = 10000
 last_epoch = None
 train_batch_loss = 0
 start_time = time.time()
-best_acc = None
+best_loss = None
 for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
     epoch = i_batch // (train_data_loader.data_num // batch_size)
     if last_epoch is None or last_epoch != epoch:
@@ -147,7 +150,7 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
         print('train batch loss %8f / valid loss %8f / valid reg loss %8f / valid acc %8f / recall_0 %8f / recall_1 %8f / elapsed time %.f' % (
             train_batch_loss, valid_loss, reg_loss, valid_acc, recall_0, recall_1, time.time()-start_time), flush=True)
         train_batch_loss = 0
-        if best_acc is None or best_acc < valid_acc:
+        if best_acc is None or valid_loss < best_loss:
             best_acc = valid_acc
             print('model saved (best)', flush=True)
             saver.save(sess, 'models/Attack-sentence-embedding-6/best')
