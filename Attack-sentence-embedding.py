@@ -94,12 +94,9 @@ gvs = optimizer.compute_gradients(cost_reg)
 capped_gvs = [(tf.clip_by_norm(grad, 20), var) for grad, var in gvs]
 train_step = optimizer.apply_gradients(capped_gvs)
 
-# saver = tf.train.Saver()
-# sess = tf.Session()
-# sess.run(tf.global_variables_initializer())
 saver = tf.train.Saver()
 sess = tf.Session()
-saver.restore(sess, './models/Attack-sentence-embedding-6/latest')
+sess.run(tf.global_variables_initializer())
 
 def eval_valid_loss():
     valid_loss = 0
@@ -125,7 +122,7 @@ def eval_valid_loss():
     return valid_loss, reg_loss, valid_acc, recall_0, recall_1
 
 
-learning_rate = 1e-4
+learning_rate = 1e-3
 batch_size = 256
 epoch_num = 40
 log_interval = 500
