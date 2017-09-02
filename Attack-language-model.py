@@ -65,7 +65,7 @@ print('%20s: %s' % ('vocab size', len(id2ch)))
 
 
 SEQLEN = 35
-BATCHSIZE = 512
+BATCHSIZE = 256
 EPOCHNUM = 40
 ALPHASIZE = len(id2ch)
 INTERNALSIZE = 200
@@ -181,9 +181,10 @@ def generate_text(pre_s, deterministic=True, max_output_len=35):
     return ''.join(output_lst)
 
 def run_validation(valid_text='你'):
-    print('%20s: %s' % ('Valid loss', eval_valid_loss()))
+    valid_loss = eval_valid_loss()
+    print('%20s: %s' % ('Valid loss', valid_loss))
     print('%20s -> %s' % (valid_text, generate_text(valid_text, deterministic=False)))
-    
+    return valid_loss
 
 step= 0
 start_time = time.time()
@@ -195,7 +196,7 @@ best_valid_loss = None
 for x, y_, epoch in rnn_minibatch_sequencer(traintext, BATCHSIZE, SEQLEN, EPOCHNUM):
     if last_epoch is None or last_epoch != epoch:
         last_epoch = epoch
-        print('Start epoch %d' % epoch)
+        print('Start epoch %d' % epoch, flush=True)
 
     step += 1
     _, now_loss, istate = sess.run([train_step, loss, H], {
@@ -223,19 +224,4 @@ for x, y_, epoch in rnn_minibatch_sequencer(traintext, BATCHSIZE, SEQLEN, EPOCHN
         saver.save(sess, 'models/Attack-language-model/latest')
         print('Saved model (latest)', flush=True)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+saver.save(sess, 'models/Attack-language-model/final')
