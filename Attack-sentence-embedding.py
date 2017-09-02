@@ -151,7 +151,7 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
             train_batch_loss, valid_loss, reg_loss, valid_acc, recall_0, recall_1, time.time()-start_time), flush=True)
         train_batch_loss = 0
         if best_loss is None or valid_loss < best_loss:
-            best_loss = valid_acc
+            best_loss = valid_loss
             print('model saved (best)', flush=True)
             saver.save(sess, 'models/Attack-sentence-embedding-6/best')
         else:
