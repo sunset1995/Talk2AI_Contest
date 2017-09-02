@@ -99,7 +99,7 @@ train_step = optimizer.apply_gradients(capped_gvs)
 # sess.run(tf.global_variables_initializer())
 saver = tf.train.Saver()
 sess = tf.Session()
-saver.restore(sess, './models/Attack-sentence-6/latest')
+saver.restore(sess, './models/Attack-sentence-embedding-6/latest')
 
 def eval_valid_loss():
     valid_loss = 0
