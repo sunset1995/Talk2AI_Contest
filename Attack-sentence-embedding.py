@@ -150,15 +150,15 @@ for i_batch in range(epoch_num * train_data_loader.data_num // batch_size):
         if best_loss is None or valid_loss < best_loss:
             best_loss = valid_loss
             print('model saved (best)', flush=True)
-            saver.save(sess, 'models/Attack-sentence-embedding-6/best')
+            saver.save(sess, 'models/Attack-sentence-embedding/best')
         else:
             learning_rate /= 1.01
             print('Decay learing rate -> %10f' % (learning_rate))
     if save_interval is not None and (i_batch+1) % save_interval == 0:
-        saver.save(sess, 'models/Attack-sentence-embedding-6/latest')
+        saver.save(sess, 'models/Attack-sentence-embedding/latest')
         print('model saved (latest)', flush=True)
 
-saver.save(sess, 'models/Attack-sentence-embedding-6/final')
+saver.save(sess, 'models/Attack-sentence-embedding/final')
 
 
 
