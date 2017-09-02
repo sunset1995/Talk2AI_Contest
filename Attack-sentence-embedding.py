@@ -125,7 +125,7 @@ def eval_valid_loss():
     return valid_loss, reg_loss, valid_acc, recall_0, recall_1
 
 
-learning_rate = 1e-2
+learning_rate = 1e-4
 batch_size = 256
 epoch_num = 40
 log_interval = 500
