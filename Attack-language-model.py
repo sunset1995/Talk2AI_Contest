@@ -72,7 +72,7 @@ INTERNALSIZE = 200
 EMBEDDINGSIZE = 200      # Must be that EmbeddingSize == INTERNALSIZE
 NLAYERS = 3
 LEARNING_RATE = 1e-3
-LEARNING_DECAY = 1.01
+LEARNING_DECAY = 1.2
 DROPOUT_PKEEP = 0.5
 LOGINTERVAL = 500
 SAVEINTERVAL= 10000
@@ -209,9 +209,8 @@ for x, y_, epoch in rnn_minibatch_sequencer(traintext, BATCHSIZE, SEQLEN, EPOCHN
     })
     batch_loss += np.mean(now_loss) / LOGINTERVAL
     if step % LOGINTERVAL == 0:
-        now_valid_loss = run_validation()
-        print('batch loss %10f / valid loss %10f / elapsed time %.f' % (
-            batch_loss, now_valid_loss, time.time() - start_time), flush=True)
+        run_validation()
+        print('batch loss %10f / elapsed time %.f' % (batch_loss, time.time() - start_time), flush=True)
         if best_valid_loss is None or now_valid_loss < best_valid_loss:
             best_valid_loss = now_valid_loss
             saver.save(sess, 'models/Attack-language-model/best')
