@@ -183,7 +183,7 @@ def generate_text(pre_s, deterministic=True, max_output_len=35):
 def run_validation(valid_text='你'):
     valid_loss = eval_valid_loss()
     print('%20s: %s' % ('Valid loss', valid_loss))
-    print('%20s -> %s' % (valid_text, generate_text(valid_text, deterministic=False)))
+    print('%20s: %s -> %s' % ('Generate text', valid_text, generate_text(valid_text, deterministic=False)))
     return valid_loss
 
 step= 0
@@ -209,8 +209,8 @@ for x, y_, epoch in rnn_minibatch_sequencer(traintext, BATCHSIZE, SEQLEN, EPOCHN
     })
     batch_loss += np.mean(now_loss) / LOGINTERVAL
     if step % LOGINTERVAL == 0:
-        run_validation()
-        print('batch loss %10f / elapsed time %.f' % (batch_loss, time.time() - start_time), flush=True)
+        now_valid_loss = run_validation()
+        print('%20s: %10f / elapsed time %.f' % ('Train batch loss', batch_loss, time.time() - start_time), flush=True)
         if best_valid_loss is None or now_valid_loss < best_valid_loss:
             best_valid_loss = now_valid_loss
             saver.save(sess, 'models/Attack-language-model/best')
