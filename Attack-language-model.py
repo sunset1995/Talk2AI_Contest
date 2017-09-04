@@ -73,7 +73,7 @@ EMBEDDINGSIZE = 200      # Must be that EmbeddingSize == INTERNALSIZE
 NLAYERS = 3
 LEARNING_RATE = 1e-3
 LEARNING_DECAY = 1.2
-DROPOUT_PKEEP = 0.5
+DROPOUT_PKEEP = 0.8
 LOGINTERVAL = 500
 SAVEINTERVAL= 10000
 CLIP = 20
@@ -217,7 +217,7 @@ for x, y_, epoch in rnn_minibatch_sequencer(traintext, BATCHSIZE, SEQLEN, EPOCHN
             print('Saved model (best)', flush=True)
         else:
             LEARNING_RATE /= LEARNING_DECAY
-            print('Decayed learning rate: %f' % LEARNING_RATE, flush=True)
+            print('Decayed learning rate: %10f' % LEARNING_RATE, flush=True)
         batch_loss = 0
     if step % SAVEINTERVAL == 0:
         saver.save(sess, 'models/Attack-language-model/latest')
