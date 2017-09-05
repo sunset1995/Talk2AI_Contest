@@ -306,9 +306,10 @@ with tf.Session() as sess:
                 save_path = saver.save(sess, record['best_model_dir']+'model.ckpt')
                 record['best_iter'] = it
                 print('Best model save in %d iteration' %it, flush=True)
-        if not os.path.exists(record['newest_model_dir']):
-            os.makedirs(record['newest_model_dir'])
-        save_path = saver.save(sess, record['newest_model_dir']+'model.ckpt')
+        if it % 100 == 0:
+            if not os.path.exists(record['newest_model_dir']):
+                os.makedirs(record['newest_model_dir'])
+            save_path = saver.save(sess, record['newest_model_dir']+'model.ckpt')
 
 
 # In[ ]:
