@@ -247,7 +247,7 @@ with tf.Session() as sess:
     # Restore model
     # saver.restore(sess, record['best_model_dir']+'model.ckpt')
     # print('Retrain model: %s' %record['best_model_dir'], flush=True)
-    best_valid_loss = 0
+    best_valid_loss = 1e9
     for it in range(params['n_iterations']):
         print('Iterations %4d:\t' %(it+1) , end='', flush=True)
         # Train next batch

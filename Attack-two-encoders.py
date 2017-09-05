@@ -71,7 +71,7 @@ gc.collect()
 
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'two_encoders_2'
+exp_name = 'two_encoders_3'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -155,7 +155,7 @@ if params['n_layers'] == 1:
         encoding_response = r_states.h
 else:
     with tf.variable_scope('context') as scope:
-        c_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], use_peepholes=True, state_is_tuple=True)#, reuse=tf.get_variable_scope().reuse) 
+        c_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], use_peepholes=True, state_is_tuple=True, reuse=tf.get_variable_scope().reuse) 
                     for _ in range(params['n_layers'])]
         c_dropcells = [tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob) for cell in c_cells]
         c_multicell = tf.contrib.rnn.MultiRNNCell(c_dropcells, state_is_tuple=True)
@@ -164,7 +164,7 @@ else:
         encoding_context = c_states[-1].h
     
     with tf.variable_scope('response') as scope:
-        r_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], use_peepholes=True, state_is_tuple=True)#, reuse=tf.get_variable_scope().reuse) 
+        r_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], use_peepholes=True, state_is_tuple=True, reuse=tf.get_variable_scope().reuse) 
                     for _ in range(params['n_layers'])]
         r_dropcells = [tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob) for cell in r_cells]
         r_multicell = tf.contrib.rnn.MultiRNNCell(r_dropcells, state_is_tuple=True)
@@ -286,7 +286,7 @@ with tf.Session() as sess:
     # Restore model
     # saver.restore(sess, record['best_model_dir']+'model.ckpt')
     # print('Retrain model: %s' %record['best_model_dir'], flush=True)
-    best_valid_loss = 0
+    best_valid_loss = 1e9
     for it in range(params['n_iterations']):
         print('Iterations %4d:\t' %(it+1) , end='', flush=True)
         # Train next batch
