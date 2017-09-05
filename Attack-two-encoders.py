@@ -67,11 +67,11 @@ gc.collect()
 
 # ## Model
 
-# In[ ]:
+# In[5]:
 
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'two_encoders_1'
+exp_name = 'two_encoders_2'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -79,7 +79,8 @@ params['word2vec_model_name'] = word2vec_fname
 params['word2vec_vocab_size'] = embedding_matrix.shape[0]
 params['word2vec_dim'] = embedding_matrix.shape[1]
 params['rnn_dim'] = 256  # 256, 384, 512
-params['n_layers'] = 1
+params['n_layers'] = 2
+params['forget_bias'] = 1.0
 
 # Training Parameters
 params['learning_rate'] = 1e-4
@@ -90,6 +91,7 @@ params['clip'] = 1  # 1e-2
 params['batch_size'] = 256 #512
 params['eval_batch_size'] = 16
 params['n_iterations'] = int(20 * train_data_loader.data_num / params['batch_size'])
+
 
 # In[6]:
 
@@ -139,39 +141,39 @@ response_embedded = tf.nn.embedding_lookup(embeddings_W, response, name="embed_r
 
 if params['n_layers'] == 1:
     with tf.variable_scope('context'):
-        c_cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, 
+        c_cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], 
                     use_peepholes=True, state_is_tuple=True)
         c_cell = tf.contrib.rnn.DropoutWrapper(c_cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
         c_outputs, c_states = tf.nn.dynamic_rnn(c_cell, context_embedded, sequence_length=context_len, dtype=tf.float32)
         encoding_context = c_states.h
     
     with tf.variable_scope('response'):
-        r_cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, 
+        r_cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], 
                     use_peepholes=True, state_is_tuple=True)
         r_cell = tf.contrib.rnn.DropoutWrapper(r_cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
         r_outputs, r_states = tf.nn.dynamic_rnn(r_cell, response_embedded, sequence_length=response_len, dtype=tf.float32)
         encoding_response = r_states.h
 else:
-    with tf.name_scope('context') as scope:
-        c_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, use_peepholes=True, state_is_tuple=False, reuse=tf.get_variable_scope().reuse) 
+    with tf.variable_scope('context') as scope:
+        c_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], use_peepholes=True, state_is_tuple=True)#, reuse=tf.get_variable_scope().reuse) 
                     for _ in range(params['n_layers'])]
         c_dropcells = [tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob) for cell in c_cells]
-        c_multicell = tf.contrib.rnn.MultiRNNCell(c_dropcells, state_is_tuple=False)
+        c_multicell = tf.contrib.rnn.MultiRNNCell(c_dropcells, state_is_tuple=True)
         c_multicell = tf.contrib.rnn.DropoutWrapper(c_multicell, output_keep_prob=keep_prob)
         c_outputs, c_states = tf.nn.dynamic_rnn(c_multicell, context_embedded, sequence_length=context_len, dtype=tf.float32)
-        encoding_context = c_states.h
+        encoding_context = c_states[-1].h
     
-    with tf.name_scope('response') as scope:
-        r_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, use_peepholes=True, state_is_tuple=False, reuse=tf.get_variable_scope().reuse) 
+    with tf.variable_scope('response') as scope:
+        r_cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], use_peepholes=True, state_is_tuple=True)#, reuse=tf.get_variable_scope().reuse) 
                     for _ in range(params['n_layers'])]
         r_dropcells = [tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob) for cell in r_cells]
-        r_multicell = tf.contrib.rnn.MultiRNNCell(r_dropcells, state_is_tuple=False)
+        r_multicell = tf.contrib.rnn.MultiRNNCell(r_dropcells, state_is_tuple=True)
         r_multicell = tf.contrib.rnn.DropoutWrapper(r_multicell, output_keep_prob=keep_prob)
         r_outputs, r_states = tf.nn.dynamic_rnn(r_multicell, response_embedded, sequence_length=response_len, dtype=tf.float32)
-        encoding_response = r_states.h
+        encoding_response = r_states[-1].h
 
 
-# In[14]:
+# In[9]:
 
 
 # Cosine Similarity
@@ -182,7 +184,7 @@ else:
 #cos_sim = cos_sim / (tf.norm(encoding_context, axis=1)*tf.norm(encoding_response, axis=1))  # None
 
 
-# In[25]:
+# In[10]:
 
 
 ''' Loss: Sigmoid of cosine similarity '''
@@ -197,23 +199,7 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 '''
 
 
-# In[25]:
-
-
-''' Loss: cr '''
-'''
-cr = tf.reduce_sum(tf.multiply(encoding_context, encoding_response), axis=1)
-# Sigmoid cross-entropy loss
-target_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=cos_sim, labels=tf.to_float(target)))
-loss = target_loss
-
-# Accuracy
-correct_prediction = tf.logical_or( tf.logical_and(tf.equal(target,1), tf.greater_equal(tf.log_sigmoid(cos_sim), 0.5)), tf.logical_and(tf.equal(target, 0), tf.less(tf.log_sigmoid(cos_sim), 0.5)))
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-'''
-
-
-# In[28]:
+# In[11]:
 
 
 ''' Loss: cMr '''
@@ -239,7 +225,7 @@ l1_loss = params['l1_loss'] * tf.reduce_sum(tf.abs(M))
 loss = target_loss + l1_loss
 
 
-# In[22]:
+# In[12]:
 
 
 ''' Loss: Cosine Similarity '''
@@ -255,7 +241,7 @@ loss = target_loss
 '''
 
 
-# In[29]:
+# In[13]:
 
 
 # Train step
@@ -265,7 +251,7 @@ capped_gvs = [(tf.clip_by_norm(grad, params['clip']), var) for grad, var in gvs]
 train_step = optimizer.apply_gradients(capped_gvs)
 
 
-# In[30]:
+# In[ ]:
 
 
 def get_valid_loss_accuracy(sess):
@@ -313,7 +299,7 @@ with tf.Session() as sess:
         if it % 10 == 0:
             # Save the model if has smaller loss
             current_valid_loss = get_valid_loss_accuracy(sess)
-            if current_valid_loss >= best_valid_loss:
+            if current_valid_loss < best_valid_loss:
                 best_valid_loss = current_valid_loss
                 if not os.path.exists(record['best_model_dir']):
                     os.makedirs(record['best_model_dir'])
