@@ -238,8 +238,8 @@ class MiniBatchCorpus():
         dt = self._dt_pool[f:t]
         x1 = [list(lst) for lst in self._corpus[dt[:, 0]]]
         x2 = [list(lst) for lst in self._corpus[dt[:, 1]]]
-        x1_len = [len(x)-1 for x in x1]
-        x2_len = [len(x)-1 for x in x2]
+        x1_len = [len(x) for x in x1]
+        x2_len = [len(x) for x in x2]
         y = dt[:, 2].copy()
         if pad_to_length > 0:
             for i in range(len(x1)):

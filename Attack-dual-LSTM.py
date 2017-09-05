@@ -26,16 +26,16 @@ from mini_batch_helper import extractor, MiniBatchCorpus
 
 
 # Read in  training data
-word2vec_fname = 'models/word2vec_no_tc_offitial_200.model.bin'
+word2vec_fname = 'models/word2vec/fine-tuned-2.txt'
 corpus_fnames = [
-    'datas/training_data/no_TC_下課花路米.txt',
-    'datas/training_data/no_TC_人生劇展.txt',
-    'datas/training_data/no_TC_公視藝文大道.txt',
-    'datas/training_data/no_TC_成語賽恩思.txt',
-    'datas/training_data/no_TC_我的這一班.txt',
-    'datas/training_data/no_TC_流言追追追.txt',
-    'datas/training_data/no_TC_聽聽看.txt',
-    'datas/training_data/no_TC_誰來晚餐.txt',
+    'datas/training_data/下課花路米.txt',
+    'datas/training_data/人生劇展.txt',
+    'datas/training_data/公視藝文大道.txt',
+    'datas/training_data/成語賽恩思.txt',
+    'datas/training_data/我的這一班.txt',
+    'datas/training_data/流言追追追.txt',
+    'datas/training_data/聽聽看.txt',
+    'datas/training_data/誰來晚餐.txt',
 ]
 sample_rate_on_training_datas = 1.0  # 1.0
 extra_words = ['<pad>']
@@ -50,7 +50,7 @@ word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2v
 # Data split
 rnd_idx = np.arange(len(corpus_id))
 np.random.shuffle(rnd_idx)
-corpus_id = corpus_id[rnd_idx[:len(corpus_id)//2]]
+corpus_id = corpus_id[rnd_idx[:len(corpus_id)]]
 valid_corpus_num = 10
 
 train_data_loader = MiniBatchCorpus(corpus_id[valid_corpus_num:])
@@ -93,7 +93,7 @@ type(max_seq_len)
 
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'dual_lstm_8'
+exp_name = 'dual_lstm_12'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -102,16 +102,17 @@ params['word2vec_vocab_size'] = embedding_matrix.shape[0]
 params['word2vec_dim'] = embedding_matrix.shape[1]
 params['rnn_dim'] = 256  # 256, 384, 512
 params['n_layers'] = 2
+params['forget_bias'] = 1.0
 
 # Training Parameters
 params['learning_rate'] = 1e-4
-params['keep_prob_train'] = 0.8
+params['keep_prob_train'] = 0.8 # 0.8
 params['keep_prob_valid'] = 1.0
-params['l1_loss'] = 1e-6 # regularize M
-params['clip'] = 5
-params['batch_size'] = 512
+params['l1_loss'] = 1e-4 #1e-6 # regularize M
+params['clip'] = 1  # 1e-2
+params['batch_size'] = 256 #512
 params['eval_batch_size'] = 16
-params['n_iterations'] = int(10 * train_data_loader.data_num / params['batch_size'])
+params['n_iterations'] = int(20 * train_data_loader.data_num / params['batch_size'])
 
 
 # In[9]:
@@ -163,27 +164,25 @@ response_embedded = tf.nn.embedding_lookup(embeddings_W, response, name="embed_r
 
 if params['n_layers'] == 1:
 # shared LSTM encoder
-    cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, 
+    cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], 
                 use_peepholes=True, state_is_tuple=True, reuse=tf.get_variable_scope().reuse)
     cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
-    c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, dtype=tf.float32)
-    mask = tf.expand_dims(tf.one_hot(context_len, depth=tf.shape(context)[1]), 1)
-    encoding_context = tf.squeeze(tf.matmul(mask, c_outputs), 1)   # c_states.h
-    r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, dtype=tf.float32)
-    mask = tf.expand_dims(tf.one_hot(response_len, depth=tf.shape(response)[1]), 1)
-    encoding_response =  tf.squeeze(tf.matmul(mask, r_outputs), 1)  # r_states.h
+    c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, sequence_length=context_len, dtype=tf.float32)
+    encoding_context = c_states.h
+    r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, sequence_length=response_len, dtype=tf.float32)
+    encoding_response = r_states.h
+    #mask = tf.expand_dims(tf.one_hot(response_len, depth=tf.shape(response)[1]), 1)
+    #encoding_response =  tf.squeeze(tf.matmul(mask, r_outputs), 1)  # r_states.h
 else:
-    cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=2.0, use_peepholes=True, state_is_tuple=False, reuse=tf.get_variable_scope().reuse) 
+    cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], use_peepholes=True, state_is_tuple=True, reuse=tf.get_variable_scope().reuse) 
                 for _ in range(params['n_layers'])]
     dropcells = [tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob) for cell in cells]
-    multicell = tf.contrib.rnn.MultiRNNCell(dropcells, state_is_tuple=False)
+    multicell = tf.contrib.rnn.MultiRNNCell(dropcells, state_is_tuple=True)
     multicell = tf.contrib.rnn.DropoutWrapper(multicell, output_keep_prob=keep_prob)
-    c_outputs, c_states = tf.nn.dynamic_rnn(multicell, context_embedded, dtype=tf.float32)
-    mask = tf.expand_dims(tf.one_hot(context_len, depth=tf.shape(context)[1]), 1)
-    encoding_context = tf.squeeze(tf.matmul(mask, c_outputs), 1)   # c_states.h
-    r_outputs, r_states = tf.nn.dynamic_rnn(multicell, response_embedded, dtype=tf.float32)
-    mask = tf.expand_dims(tf.one_hot(response_len, depth=tf.shape(response)[1]), 1)
-    encoding_response =  tf.squeeze(tf.matmul(mask, r_outputs), 1)  # r_states.h
+    c_outputs, c_states = tf.nn.dynamic_rnn(multicell, context_embedded, sequence_length=context_len, dtype=tf.float32)
+    encoding_context = c_states[-1].h
+    r_outputs, r_states = tf.nn.dynamic_rnn(multicell, response_embedded, sequence_length=response_len, dtype=tf.float32)
+    encoding_response = r_states[-1].h
 
 # σ(cMr)
 M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
@@ -202,8 +201,9 @@ probs = tf.sigmoid(logits)
 correct_prediction = tf.logical_or( tf.logical_and(tf.equal(target,1), tf.greater_equal(probs,0.5)), tf.logical_and(tf.equal(target,0), tf.less(probs,0.5)))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 # Calculate the binary cross-entropy loss
-loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=tf.to_float(target)))
-loss = loss + params['l1_loss'] * tf.reduce_sum(tf.abs(M))
+target_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=tf.to_float(target)))
+l1_loss = params['l1_loss'] * tf.reduce_sum(tf.abs(M))
+loss = target_loss + l1_loss
 
 #train_step = tf.train.AdamOptimizer(params['learning_rate']).minimize(loss)
 optimizer = tf.train.AdamOptimizer(params['learning_rate'])
@@ -212,8 +212,7 @@ capped_gvs = [(tf.clip_by_norm(grad, params['clip']), var) for grad, var in gvs]
 train_step = optimizer.apply_gradients(capped_gvs)
 
 
-
-# In[ ]:
+# In[12]:
 
 
 def get_valid_loss_accuracy(sess):
@@ -235,7 +234,7 @@ def get_valid_loss_accuracy(sess):
     return valid_loss
 
 
-# In[ ]:
+# In[13]:
 
 
 # Train
@@ -253,15 +252,15 @@ with tf.Session() as sess:
         print('Iterations %4d:\t' %(it+1) , end='', flush=True)
         # Train next batch
         next_x1, next_x2, next_y, x1_len, x2_len = train_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len, return_len=True)
-        batch_loss, _ = sess.run([loss, train_step], 
+        batch_loss, batch_l1_loss, _ = sess.run([target_loss, l1_loss, train_step], 
                             feed_dict={context: next_x1, response: next_x2, target: next_y, 
                             keep_prob: params['keep_prob_train'], context_len: x1_len, response_len:x2_len}) 
-        print('loss of batch = %.5f / elapsed time %.f' % (batch_loss, time.time() - start_time), flush=True)
+        print('loss = %.5f / l1_loss = %.5f / elapsed time %.f' % (batch_loss, batch_l1_loss, time.time() - start_time), flush=True)
         record['loss_train'].append( batch_loss.tolist() )
         if it % 10 == 0:
             # Save the model if has smaller loss
             current_valid_loss = get_valid_loss_accuracy(sess)
-            if current_valid_loss >= best_valid_loss:
+            if current_valid_loss < best_valid_loss:
                 best_valid_loss = current_valid_loss
                 if not os.path.exists(record['best_model_dir']):
                     os.makedirs(record['best_model_dir'])
@@ -281,4 +280,10 @@ if not os.path.exists(save_record_dir):
     os.makedirs(save_record_dir)
 with open(save_record_dir+'%d.json' %params['n_iterations'], 'w') as f:
     json.dump(record, f, indent=1)
+
+
+# In[ ]:
+
+
+
 
