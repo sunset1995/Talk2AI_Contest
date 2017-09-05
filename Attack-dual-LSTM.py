@@ -257,7 +257,7 @@ with tf.Session() as sess:
                             keep_prob: params['keep_prob_train'], context_len: x1_len, response_len:x2_len}) 
         print('loss = %.5f / l1_loss = %.5f / elapsed time %.f' % (batch_loss, batch_l1_loss, time.time() - start_time), flush=True)
         record['loss_train'].append( batch_loss.tolist() )
-        if it % 10 == 0:
+        if it % 1000 == 0:
             # Save the model if has smaller loss
             current_valid_loss = get_valid_loss_accuracy(sess)
             if current_valid_loss < best_valid_loss:
