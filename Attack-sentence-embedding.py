@@ -40,7 +40,7 @@ word2id, id2word, word_p, embedding_matrix, corpus, corpus_id = extractor(word2v
 
 
 voc_size = embedding_matrix.shape[0]
-emb_size = embedding_matrix.shape[1]
+emb_size = 400
 pad_word_id = word2id['<pad>']
 max_seq_len = np.max([len(s) for cp in corpus_id for s in cp])
 
@@ -61,7 +61,7 @@ print('valid datas num:', valid_data_loader.data_num)
 
 
 # Word embedding model
-embeddings_W = tf.Variable(embedding_matrix)
+embeddings_W = tf.Variable(np.random.uniform(-6/emb_size/emb_size, 6/emb_size/emb_size, [voc_size, emb_size]))
 
 # Input
 x1 = tf.placeholder(tf.int32, [None, None])
