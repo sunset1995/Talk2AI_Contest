@@ -71,7 +71,7 @@ gc.collect()
 
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'two_encoders_3'
+exp_name = 'two_encoders_4'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -79,7 +79,7 @@ params['word2vec_model_name'] = word2vec_fname
 params['word2vec_vocab_size'] = embedding_matrix.shape[0]
 params['word2vec_dim'] = embedding_matrix.shape[1]
 params['rnn_dim'] = 256  # 256, 384, 512
-params['n_layers'] = 2
+params['n_layers'] = 4
 params['forget_bias'] = 1.0
 
 # Training Parameters
