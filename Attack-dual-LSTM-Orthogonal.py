@@ -130,71 +130,70 @@ record['sample_correct'] = 0
 # Define model
 import tensorflow as tf
 
-with tf.device('/cpu:0'):
-    # Input
-    context = tf.placeholder(dtype=tf.int32, shape=(None, None), name='context')
-    context_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='context_len')
-    response = tf.placeholder(dtype=tf.int32, shape=(None, None), name='response')
-    response_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='response_len')
-    target = tf.placeholder(dtype=tf.int32, shape=(None, ), name='target')
-    keep_prob = tf.placeholder(dtype=tf.float32, name='keep_prob')
+# Input
+context = tf.placeholder(dtype=tf.int32, shape=(None, None), name='context')
+context_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='context_len')
+response = tf.placeholder(dtype=tf.int32, shape=(None, None), name='response')
+response_len = tf.placeholder(dtype=tf.int32, shape=(None,), name='response_len')
+target = tf.placeholder(dtype=tf.int32, shape=(None, ), name='target')
+keep_prob = tf.placeholder(dtype=tf.float32, name='keep_prob')
 
 
-    #with tf.device('/gpu:0'):
-    # Embedding
-    init_embedding_W = tf.constant_initializer(embedding_matrix)
-    embeddings_W = tf.get_variable('embeddings_W', shape=[embedding_matrix.shape[0], embedding_matrix.shape[1]], initializer=init_embedding_W)
-    context_embedded = tf.nn.embedding_lookup(embeddings_W, context, name="embed_context")
-    response_embedded = tf.nn.embedding_lookup(embeddings_W, response, name="embed_response")
+#with tf.device('/gpu:0'):
+# Embedding
+init_embedding_W = tf.constant_initializer(embedding_matrix)
+embeddings_W = tf.get_variable('embeddings_W', shape=[embedding_matrix.shape[0], embedding_matrix.shape[1]], initializer=init_embedding_W)
+context_embedded = tf.nn.embedding_lookup(embeddings_W, context, name="embed_context")
+response_embedded = tf.nn.embedding_lookup(embeddings_W, response, name="embed_response")
 
-    if params['n_layers'] == 1:
-    # shared LSTM encoder
-        cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], initializer=tf.orthogonal_initializer(),
-                    use_peepholes=False, state_is_tuple=True, reuse=tf.get_variable_scope().reuse)
-        cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
-        c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, sequence_length=context_len, dtype=tf.float32)
-        encoding_context = c_states.h
-        r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, sequence_length=response_len, dtype=tf.float32)
-        encoding_response = r_states.h
-        #mask = tf.expand_dims(tf.one_hot(response_len, depth=tf.shape(response)[1]), 1)
-        #encoding_response =  tf.squeeze(tf.matmul(mask, r_outputs), 1)  # r_states.h
-    else:
-        cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], initializer=tf.orthogonal_initializer(), use_peepholes=False, state_is_tuple=True, reuse=tf.get_variable_scope().reuse) 
-                    for _ in range(params['n_layers'])]
-        dropcells = [tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob) for cell in cells]
-        multicell = tf.contrib.rnn.MultiRNNCell(dropcells, state_is_tuple=True)
-        multicell = tf.contrib.rnn.DropoutWrapper(multicell, output_keep_prob=keep_prob)
-        c_outputs, c_states = tf.nn.dynamic_rnn(multicell, context_embedded, sequence_length=context_len, dtype=tf.float32)
-        encoding_context = c_states[-1].h
-        r_outputs, r_states = tf.nn.dynamic_rnn(multicell, response_embedded, sequence_length=response_len, dtype=tf.float32)
-        encoding_response = r_states[-1].h
+if params['n_layers'] == 1:
+# shared LSTM encoder
+    cell = tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], initializer=tf.orthogonal_initializer(),
+                use_peepholes=False, state_is_tuple=True, reuse=tf.get_variable_scope().reuse)
+    cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
+    c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, sequence_length=context_len, dtype=tf.float32)
+    encoding_context = c_states.h
+    r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, sequence_length=response_len, dtype=tf.float32)
+    encoding_response = r_states.h
+    #mask = tf.expand_dims(tf.one_hot(response_len, depth=tf.shape(response)[1]), 1)
+    #encoding_response =  tf.squeeze(tf.matmul(mask, r_outputs), 1)  # r_states.h
+else:
+    cells = [tf.nn.rnn_cell.LSTMCell(num_units=params['rnn_dim'], forget_bias=params['forget_bias'], initializer=tf.orthogonal_initializer(), use_peepholes=False, state_is_tuple=True, reuse=tf.get_variable_scope().reuse) 
+                for _ in range(params['n_layers'])]
+    dropcells = [tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob) for cell in cells]
+    multicell = tf.contrib.rnn.MultiRNNCell(dropcells, state_is_tuple=True)
+    multicell = tf.contrib.rnn.DropoutWrapper(multicell, output_keep_prob=keep_prob)
+    c_outputs, c_states = tf.nn.dynamic_rnn(multicell, context_embedded, sequence_length=context_len, dtype=tf.float32)
+    encoding_context = c_states[-1].h
+    r_outputs, r_states = tf.nn.dynamic_rnn(multicell, response_embedded, sequence_length=response_len, dtype=tf.float32)
+    encoding_response = r_states[-1].h
 
-    # σ(cMr)
-    M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
+# σ(cMr)
+M = tf.get_variable('M', shape=[params['rnn_dim'], params['rnn_dim']], initializer=tf.truncated_normal_initializer(stddev=0.01))
 
-    # "Predict" a  response: c * M
-    generated_response = tf.matmul(encoding_context, M)
-    generated_response = tf.expand_dims(generated_response, 2)
-    encoding_response = tf.expand_dims(encoding_response, 2)
+# "Predict" a  response: c * M
+generated_response = tf.matmul(encoding_context, M)
+generated_response = tf.expand_dims(generated_response, 2)
+encoding_response = tf.expand_dims(encoding_response, 2)
 
-    # Dot product between generated response and actual response
-    logits = tf.matmul(generated_response, encoding_response, True)
-    logits = tf.reshape(logits, [-1])
+# Dot product between generated response and actual response
+logits = tf.matmul(generated_response, encoding_response, True)
+logits = tf.reshape(logits, [-1])
 
-    # Apply sigmoid to convert logits to probabilities (for prediction, not for loss)
-    probs = tf.sigmoid(logits)
-    correct_prediction = tf.logical_or( tf.logical_and(tf.equal(target,1), tf.greater_equal(probs,0.5)), tf.logical_and(tf.equal(target,0), tf.less(probs,0.5)))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    # Calculate the binary cross-entropy loss
-    target_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=tf.to_float(target)))
-    l1_loss = params['l1_loss'] * tf.reduce_sum(tf.abs(M))
-    loss = target_loss + l1_loss
+# Apply sigmoid to convert logits to probabilities (for prediction, not for loss)
+probs = tf.sigmoid(logits)
+correct_prediction = tf.logical_or( tf.logical_and(tf.equal(target,1), tf.greater_equal(probs,0.5)), tf.logical_and(tf.equal(target,0), tf.less(probs,0.5)))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+# Calculate the binary cross-entropy loss
+target_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=tf.to_float(target)))
+l1_loss = params['l1_loss'] * tf.reduce_sum(tf.abs(M))
+loss = target_loss + l1_loss
 
-    #train_step = tf.train.AdamOptimizer(params['learning_rate']).minimize(loss)
-    optimizer = tf.train.AdamOptimizer(params['learning_rate'])
-    gvs = optimizer.compute_gradients(loss)
-    capped_gvs = [(tf.clip_by_norm(grad, params['clip']), var) for grad, var in gvs]
-    train_step = optimizer.apply_gradients(capped_gvs)
+#train_step = tf.train.AdamOptimizer(params['learning_rate']).minimize(loss)
+optimizer = tf.train.AdamOptimizer(params['learning_rate'])
+gvs = optimizer.compute_gradients(loss)
+capped_gvs = [(tf.clip_by_norm(grad, params['clip']), var) for grad, var in gvs]
+train_step = optimizer.apply_gradients(capped_gvs)
 
 
 # In[11]:
