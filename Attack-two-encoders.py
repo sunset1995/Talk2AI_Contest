@@ -259,7 +259,7 @@ def get_valid_loss_accuracy(sess):
     valid_accuracy = 0
     n_iter = int(valid_data_loader.data_num/params['batch_size'])
     for iter in range(n_iter):
-        next_x1, next_x2, next_y, x1_len, x2_len = valid_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len, return_len=True)
+        next_x1, next_x2, next_y, x1_len, x2_len = valid_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len, pad_word=word2id['<pad>'], return_len=True)
         new_accuracy, new_loss = sess.run([accuracy, loss], 
                                     feed_dict={context: next_x1, response: next_x2, target: next_y, 
                                     keep_prob: params['keep_prob_train'], context_len: x1_len, response_len:x2_len}) 
@@ -290,7 +290,7 @@ with tf.Session() as sess:
     for it in range(params['n_iterations']):
         print('Iterations %4d:\t' %(it+1) , end='', flush=True)
         # Train next batch
-        next_x1, next_x2, next_y, x1_len, x2_len = train_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len, return_len=True)
+        next_x1, next_x2, next_y, x1_len, x2_len = train_data_loader.next_batch(batch_size=params['batch_size'], pad_to_length=max_seq_len, pad_word=word2id['<pad>'], return_len=True)
         batch_loss, batch_l1_loss, _ = sess.run([target_loss, l1_loss, train_step], 
                             feed_dict={context: next_x1, response: next_x2, target: next_y, 
                             keep_prob: params['keep_prob_train'], context_len: x1_len, response_len:x2_len}) 
