@@ -93,7 +93,7 @@ type(max_seq_len)
 
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'dual_lstm_16'
+exp_name = 'dual_lstm_17'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -108,7 +108,7 @@ params['forget_bias'] = 1.0
 params['learning_rate'] = 1e-4
 params['keep_prob_train'] = 0.8 # 0.8
 params['keep_prob_valid'] = 1.0
-params['l1_loss'] = 1e-4 #1e-6 # regularize M
+params['l1_loss'] = 1e-3 #1e-6 # regularize M
 params['clip'] = 15  # 1e-2
 params['batch_size'] = 256 #512
 params['eval_batch_size'] = 16
