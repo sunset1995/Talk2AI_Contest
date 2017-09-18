@@ -93,7 +93,7 @@ type(max_seq_len)
 
 
 # reference: https://github.com/dennybritz/chatbot-retrieval/blob/8b1be4c2e63631b1180b97ef927dc2c1f7fe9bea/udc_hparams.py
-exp_name = 'dual_lstm_17'
+exp_name = 'dual_lstm_18'
 # Model Parameters
 params = {}
 save_params_dir = 'models/%s/' %exp_name
@@ -101,14 +101,14 @@ params['word2vec_model_name'] = word2vec_fname
 params['word2vec_vocab_size'] = embedding_matrix.shape[0]
 params['word2vec_dim'] = embedding_matrix.shape[1]
 params['rnn_dim'] = 256  # 256, 384, 512
-params['n_layers'] = 1
+params['n_layers'] = 2
 params['forget_bias'] = 1.0
 
 # Training Parameters
 params['learning_rate'] = 1e-4
 params['keep_prob_train'] = 0.8 # 0.8
 params['keep_prob_valid'] = 1.0
-params['l1_loss'] = 1e-3 #1e-6 # regularize M
+params['l1_loss'] = 1e-4 #1e-6 # regularize M
 params['clip'] = 15  # 1e-2
 params['batch_size'] = 256 #512
 params['eval_batch_size'] = 16
@@ -206,7 +206,7 @@ l1_loss = params['l1_loss'] * tf.reduce_sum(tf.abs(M))
 loss = target_loss + l1_loss
 
 #train_step = tf.train.AdamOptimizer(params['learning_rate']).minimize(loss)
-optimizer = tf.train.AdamOptimizer(params['learning_rate'])
+optimizer = tf.train.AdagradOptimizer(params['learning_rate'])
 gvs = optimizer.compute_gradients(loss)
 capped_gvs = [(tf.clip_by_norm(grad, params['clip']), var) for grad, var in gvs]
 train_step = optimizer.apply_gradients(capped_gvs)
