@@ -1,4 +1,5 @@
 import gc
+import itertools
 import numpy as np
 from gensim.models import word2vec
 from gensim.models.keyedvectors import KeyedVectors
@@ -174,7 +175,7 @@ MiniBatch Helper
 Official corpus scenario
 '''
 class MiniBatchCorpus():
-    def __init__(self, corpus, n_wrong=1):
+    def __init__(self, corpus, n_wrong=1, x1_len=1):
         '''
         Parameters:
             corpus : list of corpus (2D)
@@ -185,11 +186,13 @@ class MiniBatchCorpus():
             changing corpus inside the class also.
         '''
         self._corpus = np.array([s for c in corpus for s in c])
+        self._x1_len = x1_len
         self._pointer = 0
         
         border_idx = np.cumsum([len(c) for c in corpus]) - 1
-        que_idx = np.delete(np.arange(np.sum([len(c) for c in corpus])), border_idx)
-        ans_idx = que_idx + 1
+        del_idx = [v-i for i in range(x1_len) for v in border_idx]
+        que_idx = np.delete(np.arange(np.sum([len(c) for c in corpus])), del_idx)
+        ans_idx = que_idx + x1_len
         
         self._dt_pool = np.vstack([
             np.stack([que_idx, ans_idx, np.ones(len(que_idx), dtype=np.int32)], axis=1),
@@ -236,7 +239,7 @@ class MiniBatchCorpus():
             np.random.shuffle(self._dt_pool)
         self._pointer = t
         dt = self._dt_pool[f:t]
-        x1 = [list(lst) for lst in self._corpus[dt[:, 0]]]
+        x1 = [list(itertools.chain(*[self._corpus[idx+i] for i in range(self._x1_len)])) for idx in dt[:, 0]]
         x2 = [list(lst) for lst in self._corpus[dt[:, 1]]]
         x1_len = [len(x) for x in x1]
         x2_len = [len(x) for x in x2]
