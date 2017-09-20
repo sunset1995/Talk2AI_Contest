@@ -207,7 +207,6 @@ class MiniBatchCorpus():
             x2_len = len(self._corpus[dt[1]])
             if x1_len > max_len or x2_len > max_len:
                 del_idx.append(i)
-        print(len(del_idx))
         self._dt_pool = np.delete(self._dt_pool, del_idx, axis=0)
         np.random.shuffle(self._dt_pool)
 
