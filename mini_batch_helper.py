@@ -175,7 +175,7 @@ MiniBatch Helper
 Official corpus scenario
 '''
 class MiniBatchCorpus():
-    def __init__(self, corpus, n_wrong=1, x1_len=1):
+    def __init__(self, corpus, n_wrong=1, context_len=1, max_len=1e9):
         '''
         Parameters:
             corpus : list of corpus (2D)
@@ -186,13 +186,13 @@ class MiniBatchCorpus():
             changing corpus inside the class also.
         '''
         self._corpus = np.array([s for c in corpus for s in c])
-        self._x1_len = x1_len
+        self._context_len = context_len
         self._pointer = 0
         
         border_idx = np.cumsum([len(c) for c in corpus]) - 1
-        del_idx = [v-i for i in range(x1_len) for v in border_idx]
+        del_idx = [v-i for i in range(context_len) for v in border_idx]
         que_idx = np.delete(np.arange(np.sum([len(c) for c in corpus])), del_idx)
-        ans_idx = que_idx + x1_len
+        ans_idx = que_idx + context_len
         
         self._dt_pool = np.vstack([
             np.stack([que_idx, ans_idx, np.ones(len(que_idx), dtype=np.int32)], axis=1),
@@ -201,8 +201,16 @@ class MiniBatchCorpus():
                 for i in range(n_wrong)
             ]
         ])
+        del_idx = []
+        for i, dt in enumerate(self._dt_pool):
+            x1_len = sum(len(self._corpus[dt[0]+i]) for i in range(self._context_len))
+            x2_len = len(self._corpus[dt[1]])
+            if x1_len > max_len or x2_len > max_len:
+                del_idx.append(i)
+        print(len(del_idx))
+        self._dt_pool = np.delete(self._dt_pool, del_idx, axis=0)
         np.random.shuffle(self._dt_pool)
-        
+
         self.data_num = len(self._dt_pool)
 
 
@@ -239,7 +247,7 @@ class MiniBatchCorpus():
             np.random.shuffle(self._dt_pool)
         self._pointer = t
         dt = self._dt_pool[f:t]
-        x1 = [list(itertools.chain(*[self._corpus[idx+i] for i in range(self._x1_len)])) for idx in dt[:, 0]]
+        x1 = [list(itertools.chain(*[self._corpus[idx+i] for i in range(self._context_len)])) for idx in dt[:, 0]]
         x2 = [list(lst) for lst in self._corpus[dt[:, 1]]]
         x1_len = [len(x) for x in x1]
         x2_len = [len(x) for x in x2]
