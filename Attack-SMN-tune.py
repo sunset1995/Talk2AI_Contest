@@ -62,7 +62,7 @@ print('valid datas num:', valid_data_loader.data_num, flush=True)
 # In[4]:
 
 
-exp_name = 'SMN_debug'
+exp_name = 'SMN_1'
 # HyperParameters
 # Model Parameters
 hp = {}
@@ -114,6 +114,8 @@ sample_x1 = [[s for s in re.sub('[A-Z]:', '\t', _).split('\t') if len(s.strip())
 sample_x2 = [[s for s in re.sub('[A-Z]:', '\t', _).split('\t') if len(s.strip())] for _ in sample.options.values]
 sample_y = sample.answer.values
 assert(np.sum([len(_)!=6 for _ in sample_x2]) == 0)
+sample_len1 = np.array([len(lst) for lst in sample_x1])
+sample_len2 = np.array([[len(lst) for lst in opt] for opt in sample_x2])
 sample_x1 = [[word for word in jieba.cut(' '.join(s)) if word != ' '] for s in sample_x1]
 sample_x2 = [[[word for word in jieba.cut(r) if word != ' '] for r in rs] for rs in sample_x2]
 
@@ -121,6 +123,8 @@ test_datas = pd.read_csv('datas/AIFirstProblem.txt')
 test_x1 = [[s for s in re.sub('[A-Z]:', '\t', _).split('\t') if len(s.strip())] for _ in test_datas.dialogue.values]
 test_x2 = [[s for s in re.sub('[A-Z]:', '\t', _).split('\t') if len(s.strip())] for _ in test_datas.options.values]
 assert(np.sum([len(_)!=6 for _ in test_x2]) == 0)
+test_len1 = np.array([len(lst) for lst in test_x1])
+test_len2 = np.array([[len(lst) for lst in opt] for opt in test_x2])
 test_x1 = [[word for word in jieba.cut(' '.join(s)) if word != ' '] for s in test_x1]
 test_x2 = [[[word for word in jieba.cut(r) if word != ' '] for r in rs] for rs in test_x2]
 with open('datas/AIFirst_test_answer.txt', 'r') as f:
@@ -142,7 +146,6 @@ sample_id1 = np.array([word_lst_2_id_lst(s, pad_to_length) for s in sample_x1])
 sample_id2 = np.array([[word_lst_2_id_lst(r, pad_to_length) for r in rs] for rs in sample_x2])
 test_id1 = np.array([word_lst_2_id_lst(s, pad_to_length) for s in test_x1])
 test_id2 = np.array([[word_lst_2_id_lst(r, pad_to_length) for r in rs] for rs in test_x2])
-
 
 # In[7]:
 
@@ -205,9 +208,9 @@ elif hp['cell_type'] == 'lstm':
                                    use_peepholes=True, state_is_tuple=True, 
                                    reuse=tf.get_variable_scope().reuse)
 cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
-c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, dtype=tf.float32)
+c_outputs, c_states = tf.nn.dynamic_rnn(cell, context_embedded, sequence_length=context_len, dtype=tf.float32)
 context_rnn = c_outputs
-r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, dtype=tf.float32)
+r_outputs, r_states = tf.nn.dynamic_rnn(cell, response_embedded, sequence_length=response_len, dtype=tf.float32)
 response_rnn = r_outputs
 
 
@@ -277,17 +280,22 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 # Optimize
 cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=y_label)
-train_step = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy)
+optimizer = tf.train.AdamOptimizer(learning_rate)
+gvs = optimizer.compute_gradients(cross_entropy)
+capped_gvs = [(tf.clip_by_value(grad, -hp['clip'], hp['clip']), var) for grad, var in gvs]
+train_step = optimizer.apply_gradients(capped_gvs)
 
 
 # In[ ]:
 
 
-def problem_acc(sess, q, rs, ans):
+def problem_acc(sess, q, q_len, rs, rs_len, ans):
     p_prob = sess.run(probs, feed_dict={
             context: np.repeat(q, 6, axis=0).reshape(-1, hp['word_len']),
+            context_len: np.repeat(q_len, 6), 
             response: rs.reshape(-1, hp['word_len']),
-            keep_prob: 1.0, context_len: x1_len, response_len: x2_len})
+            response_len: rs_len.reshape(-1),
+            keep_prob: 1.0,})
     return np.sum(np.argmax(p_prob.reshape(-1, 6), axis=1) == ans) / len(ans)
 
 
@@ -310,7 +318,7 @@ def get_valid_loss_accuracy(sess):
     valid_loss /= n_iter
     valid_accuracy /= n_iter
     print('Valid loss = %.5f, accuracy = %.5f' % (valid_loss, valid_accuracy), flush=True)
-    print('Sample accuracy = %.5f' % problem_acc(sess, sample_id1, sample_id2, sample_y))
+    print('Sample accuracy = %.5f' % problem_acc(sess, sample_id1, sample_len1, sample_id2, sample_len2, sample_y))
     return valid_loss
 
 
