@@ -1,2 +1,2 @@
-- [ ] 研究 [Python nltk -- Sinica Treebank](http://cpmarkchang.logdown.com/posts/184192-python-nltk-sinica-treebank)
-- [ ] 讀 word2vec
+# 科技部科技大擂台 與AI對話
+
