@@ -141,7 +141,7 @@ for mn in model_names:
     # sigmoid(cMr)
     all_score = []
     for i in range(0, len(test_id1), params['batch_size']):
-        q = np.repeat(test_id1[i:i+params['batch_size']], 6)
+        q = np.repeat(test_id1[i:i+params['batch_size']], 6, axis=0)
         r = test_id2[i:i+params['batch_size']].reshape(-1)
         q_l = [len(s) for s in q]
         r_l = [len(s) for s in r]
