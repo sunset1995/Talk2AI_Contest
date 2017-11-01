@@ -22,7 +22,9 @@ Response Selection in Retrieval-Based Chatbots](https://arxiv.org/pdf/1612.01627
 - 多個 train deep model 時 fine-tuned 過的 word2vec 跑 naive 方法，總票數比 dual-lstm 少
 - smn 沒時間 tune 跟 train
 
-熱身賽決賽預賽結果：
+
+熱身賽決賽預賽結果：  
+
 | 隊伍 | 語音分數(現場運氣) | 文本分數 | 總分 |
 | --- | :--- | :--- | :--- |
 | 現充與現充與魯蛇 | 0.6756 | 0.5810 | 0.6094 |
@@ -36,7 +38,9 @@ Response Selection in Retrieval-Based Chatbots](https://arxiv.org/pdf/1612.01627
 | other team | 0.4864 | 0.4500 | 0.4609 |
 | other team | 0.5135 | 0.4320 | 0.4564 |
 
-熱身賽決賽四強結果：
+
+熱身賽決賽四強結果：  
+
 | 隊伍 | 語音分數(現場運氣) | 文本分數 | 總分 |
 | --- | :--- | :--- | :--- |
 | 現充與現充與魯蛇 | 0.6101 | 0.5875 | 0.5943 |
